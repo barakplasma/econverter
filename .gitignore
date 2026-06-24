@@ -21,6 +21,9 @@
 !/app/build.gradle.kts
 !/app/src/main/AndroidManifest.xml
 
+# android resources
+!/app/src/main/res/**/*.xml
+
 # kotlin source
 !/app/src/main/java/**/*.kt
 

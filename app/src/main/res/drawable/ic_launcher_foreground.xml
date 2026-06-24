@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Book shape -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M30,28 L30,80 C30,82 31,83 33,83 L75,83 C77,83 78,82 78,80 L78,35 L68,28 L33,28 C31,28 30,29 30,28Z" />
+    <!-- Page fold -->
+    <path
+        android:fillColor="#E0E0E0"
+        android:pathData="M68,28 L68,35 L78,35Z" />
+    <!-- Arrow (convert symbol) -->
+    <path
+        android:fillColor="#1B5E20"
+        android:pathData="M44,52 L58,52 L58,47 L66,55 L58,63 L58,58 L44,58Z" />
+</vector>
