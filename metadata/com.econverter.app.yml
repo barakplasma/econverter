@@ -19,6 +19,7 @@ Builds:
     gradle:
       - yes
     ndk: r26b
+    output: build/outputs/apk/release/app-*-release.apk
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags

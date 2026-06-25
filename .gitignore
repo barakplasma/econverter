@@ -41,3 +41,6 @@
 
 # fastlane metadata
 !/fastlane/metadata/**/*.txt
+
+# github actions
+!/.github/workflows/release.yml
