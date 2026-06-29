@@ -1,5 +1,12 @@
 # eConverter
 
+<a href="https://f-droid.org/repository/browse/?fdid=com.econverter.app" target="_blank">
+<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on F-Droid" height="48" align="left" /></a><br /><br />
+
+[![F-Droid](https://img.shields.io/f-droid/v/com.econverter.app.svg)](https://f-droid.org/en/packages/com.econverter.app/)
+[![GitHub release](https://img.shields.io/github/release/bilec/econverter.svg)](https://github.com/bilec/econverter/releases) 
+[![Release](https://github.com/bilec/econverter/actions/workflows/release.yml/badge.svg)](https://github.com/bilec/econverter/actions/workflows/release.yml)
+
 Android app wrapping [ebook-converter](https://github.com/gryf/ebook-converter) via [Chaquopy](https://chaquo.com/chaquopy/) (Python on Android).
 
 The KF8/AZW3 writer module (`ebook_converter.ebooks.mobi.writer8`) is ported directly from [calibre](https://github.com/kovidgoyal/calibre) (GPL v3, © Kovid Goyal), as it was never included in gryf's fork.
