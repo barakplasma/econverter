@@ -433,7 +433,7 @@ class Reader(FormatReader):
                             for col in row:
                                 im = image_from_data(open('%s.jpg' % col, 'rb').read())
                                 canvas.compose(im, x_off, y_off)
-                                w, h = im.width(), im.height()
+                                w, h = im.width, im.height
                                 x_off += w
                                 if largest_height < h:
                                     largest_height = h

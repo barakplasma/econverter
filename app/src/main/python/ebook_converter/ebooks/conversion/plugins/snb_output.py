@@ -225,7 +225,7 @@ class SNBOutput(OutputFormatPlugin):
     def HandleImage(self, imageData, imagePath):
         from ebook_converter.utils.img import image_from_data, resize_image, image_to_data
         img = image_from_data(imageData)
-        x, y = img.width(), img.height()
+        x, y = img.width, img.height
         if self.opts:
             if self.opts.snb_full_screen:
                 SCREEN_X, SCREEN_Y = self.opts.output_profile.screen_size

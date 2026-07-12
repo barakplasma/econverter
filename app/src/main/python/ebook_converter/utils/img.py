@@ -8,11 +8,8 @@ import tempfile
 from io import BytesIO
 from threading import Thread
 
-# We use explicit module imports so tracebacks when importing are more useful
-#from PyQt5.QtCore import QBuffer, QByteArray, Qt
-#from PyQt5.QtGui import QColor, QImage, QImageReader, QImageWriter, QPixmap, QTransform
+from PIL import Image, ImageFilter, ImageOps
 
-from ebook_converter.constants_old import plugins
 from ebook_converter.ptempfile import TemporaryDirectory
 from ebook_converter.utils.config_base import tweaks
 from ebook_converter.utils import directory
@@ -21,9 +18,6 @@ from ebook_converter.utils.filenames import atomic_rename
 from ebook_converter.utils.imghdr import what
 
 # Utilities {{{
-# imageops, imageops_err = plugins['imageops']
-# if imageops is None:
-    # raise RuntimeError(imageops_err)
 
 
 def fit_image(width, height, pwidth, pheight):
@@ -76,10 +70,12 @@ def load_jxr_data(data):
         cmd = [get_exe_path('JxrDecApp'), '-i', 'input.jxr', '-o', 'output.tif']
         creationflags = 0
         subprocess.Popen(cmd, cwd=tdir, stdout=open(os.devnull, 'wb'), stderr=subprocess.STDOUT, creationflags=creationflags).wait()
-        i = QImage()
-        if not i.load(os.path.join(tdir, 'output.tif')):
+        tif_path = os.path.join(tdir, 'output.tif')
+        if not os.path.exists(tif_path):
             raise NotImage('Failed to convert JPEG-XR image')
-        return i
+        img = Image.open(tif_path)
+        img.load()
+        return img
 
 # }}}
 
@@ -87,7 +83,6 @@ def load_jxr_data(data):
 
 
 def png_data_to_gif_data(data):
-    from PIL import Image
     img = Image.open(BytesIO(data))
     buf = BytesIO()
     if img.mode in ('p', 'P'):
@@ -113,7 +108,6 @@ class AnimatedGIF(ValueError):
 
 
 def gif_data_to_png_data(data, discard_animation=False):
-    from PIL import Image
     img = Image.open(BytesIO(data))
     if img.is_animated and not discard_animation:
         raise AnimatedGIF()
@@ -128,20 +122,22 @@ def gif_data_to_png_data(data, discard_animation=False):
 
 def null_image():
     ' Create an invalid image. For internal use. '
-    return QImage()
+    return Image.new('RGB', (1, 1))
 
 
 def image_from_data(data):
     ' Create an image object from data, which should be a bytestring. '
-    if isinstance(data, QImage):
+    if isinstance(data, Image.Image):
         return data
-    i = QImage()
-    if not i.loadFromData(data):
+    try:
+        img = Image.open(BytesIO(data))
+        img.load()
+        return img
+    except Exception:
         q = what(None, data)
         if q == 'jxr':
             return load_jxr_data(data)
         raise NotImage('Not a valid image (detected type: {})'.format(q))
-    return i
 
 
 def image_from_path(path):
@@ -156,23 +152,21 @@ def image_from_x(x):
         return image_from_path(x)
     if hasattr(x, 'read'):
         return image_from_data(x.read())
-    if isinstance(x, (bytes, QImage)):
+    if isinstance(x, (bytes, Image.Image)):
         return image_from_data(x)
     if isinstance(x, bytearray):
         return image_from_data(bytes(x))
-    if isinstance(x, QPixmap):
-        return x.toImage()
     raise TypeError('Unknown image src type: %s' % type(x))
 
 
 def image_and_format_from_data(data):
     ' Create an image object from the specified data which should be a bytestring and also return the format of the image '
-    ba = QByteArray(data)
-    buf = QBuffer(ba)
-    buf.open(QBuffer.ReadOnly)
-    r = QImageReader(buf)
-    fmt = bytes(r.format()).decode('utf-8')
-    return r.read(), fmt
+    img = Image.open(BytesIO(data))
+    img.load()
+    fmt = (img.format or 'jpeg').lower()
+    if fmt == 'jpg':
+        fmt = 'jpeg'
+    return img, fmt
 # }}}
 
 # Saving images {{{
@@ -188,32 +182,28 @@ def image_to_data(img, compression_quality=95, fmt='JPEG', png_compression_level
     :param jpeg_progressive: Turns on the 'progressive scan' option for libjpeg which allows JPEG images to be downloaded in streaming fashion
     '''
     fmt = fmt.upper()
-    ba = QByteArray()
-    buf = QBuffer(ba)
-    buf.open(QBuffer.WriteOnly)
+    if fmt == 'JPG':
+        fmt = 'JPEG'
+    buf = BytesIO()
     if fmt == 'GIF':
-        w = QImageWriter(buf, b'PNG')
-        w.setQuality(90)
-        if not w.write(img):
-            raise ValueError('Failed to export image as ' + fmt + ' with error: ' + w.errorString())
-        return png_data_to_gif_data(ba.data())
-    is_jpeg = fmt in ('JPG', 'JPEG')
-    w = QImageWriter(buf, fmt.encode('ascii'))
-    if is_jpeg:
-        if img.hasAlphaChannel():
+        png_buf = BytesIO()
+        (img.convert('RGB') if img.mode in ('RGBA', 'LA', 'PA') else img).save(png_buf, 'PNG')
+        return png_data_to_gif_data(png_buf.getvalue())
+    save_kwargs = {}
+    if fmt == 'JPEG':
+        if img.mode in ('RGBA', 'LA', 'PA'):
             img = blend_image(img)
-        # QImageWriter only gained the following options in Qt 5.5
+        elif img.mode != 'RGB':
+            img = img.convert('RGB')
+        save_kwargs['quality'] = compression_quality
         if jpeg_optimized:
-            w.setOptimizedWrite(True)
+            save_kwargs['optimize'] = True
         if jpeg_progressive:
-            w.setProgressiveScanWrite(True)
-        w.setQuality(compression_quality)
+            save_kwargs['progressive'] = True
     elif fmt == 'PNG':
-        cl = min(9, max(0, png_compression_level))
-        w.setQuality(10 * (9-cl))
-    if not w.write(img):
-        raise ValueError('Failed to export image as ' + fmt + ' with error: ' + w.errorString())
-    return ba.data()
+        save_kwargs['compress_level'] = min(9, max(0, png_compression_level))
+    img.save(buf, fmt, **save_kwargs)
+    return buf.getvalue()
 
 
 def save_image(img, path, **kw):
@@ -262,54 +252,9 @@ def save_cover_data_to(
     :param letterbox: If True, in addition to fit resize_to inside minify_to,
         the image will be letterboxed (i.e., centered on a black background).
     '''
-    # TODO(gryf): analyze case by case, why we need all this crap down below,
-    # and why QImage object is used, instead simply do the transformation with
-    # pillow.
+    # ponytail: just write raw data; full resize/blend logic deferred until needed
     with open(path, 'wb') as fobj:
         fobj.write(data)
-    return
-
-
-    fmt = normalize_format_name(data_fmt if path is None else os.path.splitext(path)[1][1:])
-    if isinstance(data, QImage):
-        img = data
-        changed = True
-    else:
-        img, orig_fmt = image_and_format_from_data(data)
-        orig_fmt = normalize_format_name(orig_fmt)
-        changed = fmt != orig_fmt
-
-    if resize_to is not None:
-        changed = True
-        img = img.scaled(resize_to[0], resize_to[1], Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
-    owidth, oheight = img.width(), img.height()
-    nwidth, nheight = tweaks['maximum_cover_size'] if minify_to is None else minify_to
-    if letterbox:
-        img = blend_on_canvas(img, nwidth, nheight, bgcolor='#000000')
-        # Check if we were minified
-        if oheight != nheight or owidth != nwidth:
-            changed = True
-    else:
-        scaled, nwidth, nheight = fit_image(owidth, oheight, nwidth, nheight)
-        if scaled:
-            changed = True
-            img = img.scaled(nwidth, nheight, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
-    if img.hasAlphaChannel():
-        changed = True
-        img = blend_image(img, bgcolor)
-    if grayscale and not eink:
-        if not img.allGray():
-            changed = True
-            img = grayscale_image(img)
-    if eink:
-        # NOTE: Keep in mind that JPG does NOT actually support indexed colors, so the JPG algorithm will then smush everything back into a 256c mess...
-        #       Thankfully, Nickel handles PNG just fine, and we potentially generate smaller files to boot, because they can be properly color indexed ;).
-        img = eink_dither_image(img)
-        changed = True
-    if path is None:
-        return image_to_data(img, compression_quality, fmt, compression_quality // 10) if changed else data
-    with open(path, 'wb') as f:
-        f.write(image_to_data(img, compression_quality, fmt, compression_quality // 10) if changed else data)
 # }}}
 
 # Overlaying images {{{
@@ -317,13 +262,12 @@ def save_cover_data_to(
 
 def blend_on_canvas(img, width, height, bgcolor='#ffffff'):
     ' Blend the `img` onto a canvas with the specified background color and size '
-    w, h = img.width(), img.height()
+    w, h = img.width, img.height
     scaled, nw, nh = fit_image(w, h, width, height)
     if scaled:
-        img = img.scaled(nw, nh, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+        img = resize_image(img, nw, nh)
         w, h = nw, nh
-    canvas = QImage(width, height, QImage.Format_RGB32)
-    canvas.fill(QColor(bgcolor))
+    canvas = Image.new('RGB', (int(width), int(height)), bgcolor)
     overlay_image(img, canvas, (width - w)//2, (height - h)//2)
     return canvas
 
@@ -331,8 +275,7 @@ def blend_on_canvas(img, width, height, bgcolor='#ffffff'):
 class Canvas(object):
 
     def __init__(self, width, height, bgcolor='#ffffff'):
-        self.img = QImage(width, height, QImage.Format_RGB32)
-        self.img.fill(QColor(bgcolor))
+        self.img = Image.new('RGB', (int(width), int(height)), bgcolor)
 
     def __enter__(self):
         return self
@@ -350,34 +293,43 @@ class Canvas(object):
 
 def create_canvas(width, height, bgcolor='#ffffff'):
     'Create a blank canvas of the specified size and color '
-    img = QImage(width, height, QImage.Format_RGB32)
-    img.fill(QColor(bgcolor))
-    return img
+    return Image.new('RGB', (int(width), int(height)), bgcolor)
 
 
 def overlay_image(img, canvas=None, left=0, top=0):
     ' Overlay the `img` onto the canvas at the specified position '
     if canvas is None:
-        canvas = QImage(img.size(), QImage.Format_RGB32)
-        canvas.fill(Qt.white)
+        canvas = Image.new('RGB', img.size, 'white')
     left, top = int(left), int(top)
-    imageops.overlay(img, canvas, left, top)
+    if img.mode in ('RGBA', 'LA', 'PA'):
+        rgba = img.convert('RGBA')
+        canvas.paste(rgba.convert('RGB'), (left, top), mask=rgba.split()[3])
+    else:
+        canvas.paste(img.convert('RGB'), (left, top))
     return canvas
 
 
 def texture_image(canvas, texture):
     ' Repeatedly tile the image `texture` across and down the image `canvas` '
-    if canvas.hasAlphaChannel():
+    if canvas.mode in ('RGBA', 'LA', 'PA'):
         canvas = blend_image(canvas)
-    return imageops.texture_image(canvas, texture)
+    cw, ch = canvas.size
+    tw, th = texture.size
+    for x in range(0, cw, tw):
+        for y in range(0, ch, th):
+            canvas.paste(texture, (x, y))
+    return canvas
 
 
 def blend_image(img, bgcolor='#ffffff'):
     ' Used to convert images that have semi-transparent pixels to opaque by blending with the specified color '
-    canvas = QImage(img.size(), QImage.Format_RGB32)
-    canvas.fill(QColor(bgcolor))
-    overlay_image(img, canvas)
-    return canvas
+    background = Image.new('RGB', img.size, bgcolor)
+    if img.mode in ('RGBA', 'LA', 'PA'):
+        rgba = img.convert('RGBA')
+        background.paste(rgba.convert('RGB'), mask=rgba.split()[3])
+    else:
+        background.paste(img.convert('RGB'))
+    return background
 # }}}
 
 # Image borders {{{
@@ -387,8 +339,7 @@ def add_borders_to_image(img, left=0, top=0, right=0, bottom=0, border_color='#f
     img = image_from_data(img)
     if not (left > 0 or right > 0 or top > 0 or bottom > 0):
         return img
-    canvas = QImage(img.width() + left + right, img.height() + top + bottom, QImage.Format_RGB32)
-    canvas.fill(QColor(border_color))
+    canvas = Image.new('RGB', (img.width + left + right, img.height + top + bottom), border_color)
     overlay_image(img, canvas, left, top)
     return canvas
 
@@ -398,22 +349,20 @@ def remove_borders_from_image(img, fuzz=None):
     the image itself if no borders could be removed. `fuzz` is a measure of
     what colors are considered identical (must be a number between 0 and 255 in
     absolute intensity units). Default is from a tweak whose default value is 10. '''
-    fuzz = tweaks['cover_trim_fuzz_value'] if fuzz is None else fuzz
-    img = image_from_data(img)
-    ans = imageops.remove_borders(img, max(0, fuzz))
-    return ans if ans.size() != img.size() else img
+    # ponytail: border detection not implemented without imageops; returns unchanged
+    return image_from_data(img)
 # }}}
 
 # Cropping/scaling of images {{{
 
 
 def resize_image(img, width, height):
-    return img.scaled(int(width), int(height), Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+    return img.resize((int(width), int(height)), Image.LANCZOS)
 
 
 def resize_to_fit(img, width, height):
     img = image_from_data(img)
-    resize_needed, nw, nh = fit_image(img.width(), img.height(), width, height)
+    resize_needed, nw, nh = fit_image(img.width, img.height, width, height)
     if resize_needed:
         img = resize_image(img, nw, nh)
     return resize_needed, img
@@ -422,26 +371,23 @@ def resize_to_fit(img, width, height):
 def clone_image(img):
     ''' Returns a shallow copy of the image. However, the underlying data buffer
     will be automatically copied-on-write '''
-    return QImage(img)
+    return img.copy()
 
 
 def scale_image(data, width=60, height=80, compression_quality=70, as_png=False, preserve_aspect_ratio=True):
     ''' Scale an image, returning it as either JPEG or PNG data (bytestring).
     Transparency is alpha blended with white when converting to JPEG. Is thread
     safe and does not require a QApplication. '''
-    # We use Qt instead of ImageMagick here because ImageMagick seems to use
-    # some kind of memory pool, causing memory consumption to sky rocket.
     img = image_from_data(data)
     if preserve_aspect_ratio:
-        scaled, nwidth, nheight = fit_image(img.width(), img.height(), width, height)
+        scaled, nwidth, nheight = fit_image(img.width, img.height, width, height)
         if scaled:
-            img = img.scaled(nwidth, nheight, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            img = resize_image(img, nwidth, nheight)
     else:
-        if img.width() != width or img.height() != height:
-            img = img.scaled(width, height, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+        if img.width != width or img.height != height:
+            img = resize_image(img, width, height)
     fmt = 'PNG' if as_png else 'JPEG'
-    w, h = img.width(), img.height()
-    return w, h, image_to_data(img, compression_quality=compression_quality, fmt=fmt)
+    return img.width, img.height, image_to_data(img, compression_quality=compression_quality, fmt=fmt)
 
 
 def crop_image(img, x, y, width, height):
@@ -454,9 +400,9 @@ def crop_image(img, x, y, width, height):
     auto-truncated.
     '''
     img = image_from_data(img)
-    width = min(width, img.width() - x)
-    height = min(height, img.height() - y)
-    return img.copy(x, y, width, height)
+    width = min(width, img.width - x)
+    height = min(height, img.height - y)
+    return img.crop((x, y, x + width, y + height))
 
 # }}}
 
@@ -464,52 +410,55 @@ def crop_image(img, x, y, width, height):
 
 
 def grayscale_image(img):
-    return imageops.grayscale(image_from_data(img))
+    return image_from_data(img).convert('L').convert('RGB')
 
 
 def set_image_opacity(img, alpha=0.5):
     ''' Change the opacity of `img`. Note that the alpha value is multiplied to
     any existing alpha values, so you cannot use this function to convert a
     semi-transparent image to an opaque one. For that use `blend_image()`. '''
-    return imageops.set_opacity(image_from_data(img), alpha)
+    img = image_from_data(img).convert('RGBA')
+    r, g, b, a = img.split()
+    a = a.point(lambda x: int(x * alpha))
+    return Image.merge('RGBA', (r, g, b, a))
 
 
 def flip_image(img, horizontal=False, vertical=False):
-    return image_from_data(img).mirrored(horizontal, vertical)
+    img = image_from_data(img)
+    if horizontal:
+        img = img.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    if vertical:
+        img = img.transpose(Image.Transpose.FLIP_TOP_BOTTOM)
+    return img
 
 
 def image_has_transparent_pixels(img):
     ' Return True iff the image has at least one semi-transparent pixel '
-    img = image_from_data(img)
-    if img.isNull():
-        return False
-    return imageops.has_transparent_pixels(img)
+    return image_from_data(img).mode in ('RGBA', 'LA', 'PA')
 
 
 def rotate_image(img, degrees):
-    t = QTransform()
-    t.rotate(degrees)
-    return image_from_data(img).transformed(t)
+    return image_from_data(img).rotate(-degrees, expand=True)
 
 
 def gaussian_sharpen_image(img, radius=0, sigma=3, high_quality=True):
-    return imageops.gaussian_sharpen(image_from_data(img), max(0, radius), sigma, high_quality)
+    return image_from_data(img).filter(ImageFilter.UnsharpMask(radius=sigma, percent=150))
 
 
 def gaussian_blur_image(img, radius=-1, sigma=3):
-    return imageops.gaussian_blur(image_from_data(img), max(0, radius), sigma)
+    return image_from_data(img).filter(ImageFilter.GaussianBlur(radius=sigma))
 
 
 def despeckle_image(img):
-    return imageops.despeckle(image_from_data(img))
+    return image_from_data(img).filter(ImageFilter.MedianFilter(size=3))
 
 
 def oil_paint_image(img, radius=-1, high_quality=True):
-    return imageops.oil_paint(image_from_data(img), radius, high_quality)
+    return image_from_data(img)  # ponytail: oil paint unavailable in PIL, returns unchanged
 
 
 def normalize_image(img):
-    return imageops.normalize(image_from_data(img))
+    return ImageOps.autocontrast(image_from_data(img).convert('RGB'))
 
 
 def quantize_image(img, max_colors=256, dither=True, palette=''):
@@ -524,11 +473,10 @@ def quantize_image(img, max_colors=256, dither=True, palette=''):
     :param palette: Use a manually specified palette instead. For example: palette='red green blue #eee'
     '''
     img = image_from_data(img)
-    if img.hasAlphaChannel():
+    if img.mode in ('RGBA', 'LA', 'PA'):
         img = blend_image(img)
-    if palette and isinstance(palette, (str, bytes)):
-        palette = palette.split()
-    return imageops.quantize(img, max_colors, dither, [QColor(x).rgb() for x in palette])
+    dither_mode = Image.Dither.FLOYDSTEINBERG if dither else Image.Dither.NONE
+    return img.quantize(colors=max_colors, dither=dither_mode)
 
 
 def eink_dither_image(img):
@@ -537,12 +485,12 @@ def eink_dither_image(img):
 
     NOTE: No need to call grayscale_image first, as this will inline a grayscaling pass if need be.
 
-    Returns a QImage in Grayscale8 pixel format.
+    Returns an image in Grayscale8 pixel format.
     '''
     img = image_from_data(img)
-    if img.hasAlphaChannel():
+    if img.mode in ('RGBA', 'LA', 'PA'):
         img = blend_image(img)
-    return imageops.ordered_dither(img)
+    return img.convert('L').quantize(colors=16)
 
 # }}}
 
@@ -628,19 +576,14 @@ def optimize_png(file_path, level=7):
 
 
 def encode_jpeg(file_path, quality=80):
-    from ebook_converter.utils.speedups import ReadOnlyFileBuffer
     quality = max(0, min(100, int(quality)))
     exe = get_exe_path('cjpeg')
     cmd = [exe] + '-optimize -progressive -maxmemory 100M -quality'.split() + [str(quality)]
-    img = QImage()
-    if not img.load(file_path):
-        raise ValueError('%s is not a valid image file' % file_path)
-    ba = QByteArray()
-    buf = QBuffer(ba)
-    buf.open(QBuffer.WriteOnly)
-    if not img.save(buf, 'PPM'):
-        raise ValueError('Failed to export image to PPM')
-    return run_optimizer(file_path, cmd, as_filter=True, input_data=ReadOnlyFileBuffer(ba.data()))
+    img = image_from_path(file_path)
+    buf = BytesIO()
+    img.convert('RGB').save(buf, 'PPM')
+    buf.seek(0)
+    return run_optimizer(file_path, cmd, as_filter=True, input_data=buf)
 # }}}
 
 

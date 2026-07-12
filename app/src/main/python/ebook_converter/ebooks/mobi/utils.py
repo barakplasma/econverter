@@ -189,7 +189,7 @@ def rescale_image(data, maxsizeb=IMAGE_MAX_SIZE, dimen=None):
     scale = 0.9
     while len(data) > maxsizeb and scale >= 0.05:
         img = image_from_data(data)
-        w, h = img.width(), img.height()
+        w, h = img.width, img.height
         img = resize_image(img, int(scale*w), int(scale*h))
         data = image_to_data(img, compression_quality=quality)
         scale -= 0.05
