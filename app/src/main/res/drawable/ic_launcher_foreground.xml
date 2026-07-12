@@ -3,16 +3,51 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Book shape -->
+    <!-- Book covers (dark, behind pages) -->
     <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M30,28 L30,80 C30,82 31,83 33,83 L75,83 C77,83 78,82 78,80 L78,35 L68,28 L33,28 C31,28 30,29 30,28Z" />
-    <!-- Page fold -->
+        android:fillColor="#616161"
+        android:pathData="M54,28 L54,78 Q40,75 22,78 L22,28 Q36,24 54,28Z" />
+    <path
+        android:fillColor="#424242"
+        android:pathData="M54,28 L54,78 Q68,75 86,78 L86,28 Q72,24 54,28Z" />
+    <!-- Page block thickness (left) -->
     <path
         android:fillColor="#E0E0E0"
-        android:pathData="M68,28 L68,35 L78,35Z" />
-    <!-- Arrow (convert symbol) -->
+        android:pathData="M24,30 L24,76 Q38,73 52,76 L52,30 Q38,27 24,30Z" />
+    <!-- Page block thickness (right) -->
     <path
-        android:fillColor="#1B5E20"
-        android:pathData="M44,52 L58,52 L58,47 L66,55 L58,63 L58,58 L44,58Z" />
+        android:fillColor="#E0E0E0"
+        android:pathData="M56,30 L56,76 Q70,73 84,76 L84,30 Q70,27 56,30Z" />
+    <!-- Left page (top) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,30 L54,75 Q40,72 24,75 L24,30 Q38,26 54,30Z" />
+    <!-- Right page (top) -->
+    <path
+        android:fillColor="#F0F0F0"
+        android:pathData="M54,30 L54,75 Q68,72 84,75 L84,30 Q70,26 54,30Z" />
+    <!-- Left page lines -->
+    <path
+        android:fillColor="#D0D0D0"
+        android:pathData="M30,40 L50,38 L50,40 L30,42Z" />
+    <path
+        android:fillColor="#D0D0D0"
+        android:pathData="M30,48 L50,46 L50,48 L30,50Z" />
+    <path
+        android:fillColor="#D0D0D0"
+        android:pathData="M30,56 L50,54 L50,56 L30,58Z" />
+    <!-- Right page lines -->
+    <path
+        android:fillColor="#D0D0D0"
+        android:pathData="M58,38 L78,40 L78,42 L58,40Z" />
+    <path
+        android:fillColor="#D0D0D0"
+        android:pathData="M58,46 L78,48 L78,50 L58,48Z" />
+    <path
+        android:fillColor="#D0D0D0"
+        android:pathData="M58,54 L78,56 L78,58 L58,56Z" />
+    <!-- Convert arrow -->
+    <path
+        android:fillColor="#2E7D32"
+        android:pathData="M36,64 L40,60 L40,63 L68,63 L68,60 L72,64 L68,68 L68,65 L40,65 L40,68Z" />
 </vector>
