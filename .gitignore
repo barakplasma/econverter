@@ -40,6 +40,8 @@
 !/metadata/**/*.yml
 
 # fastlane metadata
+!/fastlane/metadata/**/*.jpg
+!/fastlane/metadata/**/*.png
 !/fastlane/metadata/**/*.txt
 
 # github actions
