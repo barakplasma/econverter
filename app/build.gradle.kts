@@ -14,11 +14,11 @@ android {
         applicationId = "com.econverter.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.0.3"
+        versionCode = 5
+        versionName = "1.0.4"
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+            abiFilters += listOf("arm64-v8a", "x86_64", "armeabi-v7a")
         }
     }
 
@@ -59,7 +59,7 @@ android {
 
 chaquopy {
     defaultConfig {
-        version = "3.12"
+        version = "3.11"
         extractPackages("ebook_converter")
         pip {
             install("beautifulsoup4>=4.9.3")
