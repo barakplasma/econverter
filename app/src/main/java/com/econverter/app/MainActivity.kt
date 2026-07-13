@@ -1,6 +1,8 @@
 package com.econverter.app
 
+import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -170,6 +172,13 @@ fun ConverterScreen(vm: ConverterViewModel = viewModel()) {
         if (vm.status.isNotEmpty()) {
             Text(vm.status, style = MaterialTheme.typography.bodyLarge)
         }
+
+        if (vm.status.startsWith("Error:")) {
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedButton(onClick = { reportOnGitHub(context, vm) }) {
+                Text("Report Issue")
+            }
+        }
     }
 }
 
@@ -209,6 +218,24 @@ private fun CheckboxRow(label: String, checked: Boolean, onCheckedChange: (Boole
 @Composable
 private fun OptionField(label: String, value: String, onValueChange: (String) -> Unit) {
     OutlinedTextField(value = value, onValueChange = onValueChange, label = { Text(label) }, modifier = Modifier.fillMaxWidth())
+}
+
+private fun reportOnGitHub(context: android.content.Context, vm: ConverterViewModel) {
+    val body = buildString {
+        appendLine("**Error:** ${vm.status}")
+        appendLine("**Input file:** ${vm.inputFileName}")
+        appendLine("**Output format:** ${vm.outputFormat}")
+        appendLine("**Output profile:** ${vm.outputProfile}")
+        appendLine("**Device:** ${Build.MANUFACTURER} ${Build.MODEL}")
+        appendLine("**Android:** ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})")
+        if (vm.extraArgs.isNotBlank()) appendLine("**Extra args:** ${vm.extraArgs}")
+    }
+    val title = "Conversion failed: ${vm.inputFileName.substringAfterLast(".")} → ${vm.outputFormat}"
+    val url = "https://github.com/bilec/econverter/issues/new" +
+        "?title=${Uri.encode(title)}" +
+        "&body=${Uri.encode(body)}" +
+        "&labels=bug"
+    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
 }
 
 private fun getFileName(context: android.content.Context, uri: Uri): String {
