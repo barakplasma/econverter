@@ -21,7 +21,7 @@ class HTMLOutput(OutputFormatPlugin):
 
     name = 'HTML Output'
     author = 'Fabian Grassl'
-    file_type = 'zip'
+    file_type = 'html'
     commit_name = 'html_output'
 
     options = {
@@ -122,7 +122,7 @@ class HTMLOutput(OutputFormatPlugin):
 
         tempdir = os.path.realpath(PersistentTemporaryDirectory())
         output_file = os.path.join(tempdir,
-                os.path.basename(re.sub(r'\.zip', '', output_path)+'.html'))
+                os.path.basename(re.sub(r'\.(zip|html)$', '', output_path)+'.html'))
         output_dir = re.sub(r'\.html', '', output_file)+'_files'
 
         if not os.path.exists(output_dir):
