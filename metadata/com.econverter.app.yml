@@ -62,5 +62,5 @@ Builds:
 
 AutoUpdateMode: Version
 UpdateCheckMode: Tags ^v[\d.]+$
-CurrentVersion: 1.0.5
-CurrentVersionCode: 6
+CurrentVersion: 1.0.6
+CurrentVersionCode: 7
