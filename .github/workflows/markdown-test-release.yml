@@ -123,9 +123,14 @@ jobs:
             --package 'system-images;android-35;google_apis;x86_64' \
             --device 'pixel_7'
 
-          emulator_bin="$(command -v emulator || true)"
+          sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          emulator_bin="$sdk_root/emulator/emulator"
+          if [[ ! -x "$emulator_bin" ]]; then
+            emulator_bin="$(find "$sdk_root" -path '*/emulator/emulator' -type f -perm -111 -print -quit 2>/dev/null || true)"
+          fi
           if [[ -z "$emulator_bin" || ! -x "$emulator_bin" ]]; then
-            echo 'Android emulator binary was not found' | tee android-e2e.log
+            printf 'Android emulator binary was not found under SDK root %s\n' "$sdk_root" | tee android-e2e.log
+            find "$sdk_root" -maxdepth 3 -type f -name emulator -print 2>/dev/null || true
             exit 1
           fi
 
