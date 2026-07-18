@@ -27,12 +27,14 @@ def _parse_extra_args(extra_args):
 
 
 def _install_android_compat():
-    """Replace the unavailable html5-parser dependency with lxml on Android."""
+    """Install Android substitutes for unavailable or desktop-only helpers."""
     from lxml import etree
     from lxml import html as lxml_html
 
+    from ebook_converter import constants
     from ebook_converter.ebooks.conversion.plugins.txt_input import TXTInput
     from ebook_converter.ebooks.oeb import parse_utils
+    from ebook_converter.ebooks.oeb.polish.container import Container
 
     def parse_document(data):
         if isinstance(data, bytes):
@@ -63,8 +65,18 @@ def _install_android_compat():
     def html5_parse(data, max_nesting_depth=100):
         return parse_document(data)
 
+    def opf_xpath(self, expr):
+        # The bundled desktop port accidentally passed a Clark-notation tag
+        # string as lxml's namespace mapping. Define the two prefixes used by
+        # Container.opf_xpath explicitly for the Android runtime.
+        return self.opf.xpath(expr, namespaces={
+            'opf': constants.OPF2_NS,
+            'dc': constants.DC11_NS,
+        })
+
     TXTInput.fix_resources = fix_resources
     parse_utils.html5_parse = html5_parse
+    Container.opf_xpath = opf_xpath
 
 
 def _prepare_markdown(input_path, log):
