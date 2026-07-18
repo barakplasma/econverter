@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  statuses: write
 
 concurrency:
   group: markdown-test-release
@@ -20,6 +21,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Mark build pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            -f state=pending \
+            -f context='Markdown test release' \
+            -f description='Release build started' \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -143,37 +155,32 @@ jobs:
           files: app/build/outputs/apk/release/econverter-v1.0.6-markdown.1.apk
           fail_on_unmatched_files: true
 
-      - name: Record build status in the repository
+      - name: Clean up test key
+        if: always()
+        run: rm -f app/markdown-test-release.keystore
+
+      - name: Report workflow status
         if: always()
         env:
+          GH_TOKEN: ${{ github.token }}
           SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
           BUILD_OUTCOME: ${{ steps.build.outcome }}
           VERIFY_OUTCOME: ${{ steps.verify.outcome }}
           PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
         run: |
-          {
-            echo "commit=$GITHUB_SHA"
-            echo "run=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-            echo "smoke=$SMOKE_OUTCOME"
-            echo "build=$BUILD_OUTCOME"
-            echo "verify=$VERIFY_OUTCOME"
-            echo "publish=$PUBLISH_OUTCOME"
-            echo
-            echo "--- markdown-smoke.log ---"
-            tail -n 120 markdown-smoke.log 2>/dev/null || true
-            echo
-            echo "--- gradle-release.log ---"
-            tail -n 240 gradle-release.log 2>/dev/null || true
-          } > markdown-build-status.txt
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add markdown-build-status.txt
-          git commit -m 'Record Markdown release build status' || true
-          git push origin HEAD:master
-
-      - name: Clean up test key
-        if: always()
-        run: rm -f app/markdown-test-release.keystore
+          if [[ "$SMOKE_OUTCOME" == success && "$BUILD_OUTCOME" == success && "$VERIFY_OUTCOME" == success && "$PUBLISH_OUTCOME" == success ]]; then
+            state=success
+            description='Release APK published'
+          else
+            state=failure
+            description="smoke=$SMOKE_OUTCOME build=$BUILD_OUTCOME verify=$VERIFY_OUTCOME publish=$PUBLISH_OUTCOME"
+          fi
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
+            -f state="$state" \
+            -f context='Markdown test release' \
+            -f description="$description" \
+            -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
       - name: Fail workflow when validation or release failed
         if: always() && (steps.smoke.outcome != 'success' || steps.build.outcome != 'success' || steps.verify.outcome != 'success' || steps.publish.outcome != 'success')
