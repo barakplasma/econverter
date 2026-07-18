@@ -82,6 +82,10 @@ jobs:
           PY
           } 2>&1 | tee markdown-smoke.log
 
+      - name: Set up Android SDK command-line tools
+        if: steps.smoke.outcome == 'success'
+        uses: android-actions/setup-android@v3
+
       - name: Enable KVM
         if: steps.smoke.outcome == 'success'
         run: |
