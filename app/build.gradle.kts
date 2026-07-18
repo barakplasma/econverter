@@ -14,8 +14,9 @@ android {
         applicationId = "com.econverter.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.0.6"
+        versionCode = 8
+        versionName = "1.0.6-markdown.2"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64", "armeabi-v7a")
@@ -55,6 +56,10 @@ android {
     buildFeatures {
         compose = true
     }
+
+    testOptions {
+        animationsDisabled = true
+    }
 }
 
 chaquopy {
@@ -63,12 +68,14 @@ chaquopy {
         extractPackages("ebook_converter")
         pip {
             install("beautifulsoup4>=4.9.3")
+            install("chardet>=7,<8")
             install("css-parser>=1.0.6")
             install("filelock>=3.0.12")
             install("html2text>=2020.1.16")
             install("lxml")
             install("markdown>=3.4,<4")
             install("merm==0.1.5")
+            install("msgpack>=1.0,<2")
             install("odfpy>=1.4.1")
             install("pillow>=8.0.1")
             install("python-dateutil>=2.8.1")
@@ -99,4 +106,8 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    androidTestImplementation("androidx.test:core:1.7.0")
+    androidTestImplementation("androidx.test.ext:junit:1.3.0")
+    androidTestImplementation("androidx.test:runner:1.7.0")
 }
