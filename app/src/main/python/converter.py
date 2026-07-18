@@ -8,7 +8,8 @@ import traceback
 
 
 MARKDOWN_EXTENSIONS = {'.md', '.markdown'}
-TEXT_EXTENSIONS = MARKDOWN_EXTENSIONS | {'.txt', '.text', '.textile'}
+PLAIN_TEXT_EXTENSIONS = {'.txt', '.text'}
+TEXT_EXTENSIONS = MARKDOWN_EXTENSIONS | PLAIN_TEXT_EXTENSIONS | {'.textile'}
 
 
 def _parse_extra_args(extra_args):
@@ -184,10 +185,19 @@ def convert(input_path, output_path, *extra_args):
         diagram_temp_dir = _prepare_text_input(input_path, logging.default_log)
         plumber = Plumber(input_path, output_path, logging.default_log)
 
-        if extra_args:
+        recommendations = _parse_extra_args(extra_args)
+        input_extension = os.path.splitext(input_path)[1].lower()
+        if input_extension in PLAIN_TEXT_EXTENSIONS and 'formatting_type' not in recommendations:
+            # Calibre's automatic heuristic formatter can interpret the first
+            # short paragraph as a title and remove it from the ebook body.
+            # Plain TXT should preserve the source unless the caller explicitly
+            # requests markdown, textile, or heuristic formatting.
+            recommendations['formatting_type'] = 'plain'
+
+        if recommendations:
             plumber.merge_ui_recommendations([
                 (name, val, OptionRecommendation.HIGH)
-                for name, val in _parse_extra_args(extra_args).items()
+                for name, val in recommendations.items()
             ])
 
         plumber.run()
