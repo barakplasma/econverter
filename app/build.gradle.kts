@@ -75,7 +75,6 @@ chaquopy {
             install("lxml")
             install("markdown>=3.4,<4")
             install("merm==0.1.5")
-            install("msgpack>=1.0,<2")
             install("odfpy>=1.4.1")
             install("pillow>=8.0.1")
             install("python-dateutil>=2.8.1")
