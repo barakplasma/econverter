@@ -38,7 +38,7 @@ class ConverterViewModel : ViewModel() {
     private var internalInputFile: File? = null
 
     // ponytail: PDF excluded — needs poppler (input) and PyQt5 (output), unavailable on Android
-    val inputFormats = setOf("epub", "mobi", "azw3", "azw4", "docx", "odt", "fb2", "html", "htmlz", "lrf", "pdb", "rtf", "txt", "djvu", "djv", "chm", "cbz", "cbr")
+    val inputFormats = setOf("epub", "mobi", "azw3", "azw4", "docx", "odt", "fb2", "html", "htmlz", "lrf", "pdb", "rtf", "txt", "md", "markdown", "djvu", "djv", "chm", "cbz", "cbr")
 
     // ponytail: only profiles people actually use, add more when asked
     val outputProfiles = listOf("default", "kindle", "kindle_pw3", "kindle_oasis", "kobo", "generic_eink", "generic_eink_hd", "tablet", "ipad", "ipad3", "nook", "sony")
