@@ -184,14 +184,26 @@ class MarkdownConversionInstrumentedTest {
                 while (entries.hasMoreElements()) {
                     names += entries.nextElement().name
                 }
-                val documentText = names
-                    .filter { it.endsWith(".html", true) || it.endsWith(".xhtml", true) }
-                    .joinToString("\n") { name ->
-                        epub.getInputStream(epub.getEntry(name))
-                            .bufferedReader(Charsets.UTF_8)
-                            .use { it.readText() }
-                    }
-                assertTrue("Sanitized TXT content was lost in EPUB", documentText.contains("Plain text sanitizer"))
+                val contentNames = names.filter {
+                    it.endsWith(".html", true) ||
+                        it.endsWith(".xhtml", true) ||
+                        it.endsWith(".htm", true)
+                }
+                assertTrue("TXT EPUB has no HTML-family content entries: $names", contentNames.isNotEmpty())
+
+                val documentText = contentNames.joinToString("\n") { name ->
+                    epub.getInputStream(epub.getEntry(name))
+                        .bufferedReader(Charsets.UTF_8)
+                        .use { it.readText() }
+                }
+                val visibleText = documentText
+                    .replace(Regex("<[^>]+>"), " ")
+                    .replace(Regex("\\s+"), " ")
+                    .trim()
+                assertTrue(
+                    "Sanitized TXT content was lost in EPUB; entries=$contentNames; text=${visibleText.take(500)}",
+                    visibleText.contains("Plain text sanitizer"),
+                )
                 assertTrue("TXT EPUB contains an XML-invalid NUL", !documentText.contains(0.toChar()))
             }
         } finally {
