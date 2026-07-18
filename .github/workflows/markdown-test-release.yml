@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'agent/markdown-mermaid'
+      - 'master'
   workflow_dispatch:
 
 permissions:
