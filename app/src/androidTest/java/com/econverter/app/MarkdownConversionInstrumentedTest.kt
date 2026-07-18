@@ -44,6 +44,26 @@ class MarkdownConversionInstrumentedTest {
         input.writeBytes(markdownFixture().toByteArray(charset))
     }
 
+    private fun visibleHtmlUnder(directory: File): String =
+        if (!directory.isDirectory) {
+            "<missing>"
+        } else {
+            directory.walkTopDown()
+                .filter {
+                    it.isFile &&
+                        (it.extension.equals("html", true) ||
+                            it.extension.equals("xhtml", true) ||
+                            it.extension.equals("htm", true))
+                }
+                .joinToString(" ") { file ->
+                    file.readText(Charsets.UTF_8)
+                        .replace(Regex("<[^>]+>"), " ")
+                        .replace(Regex("\\s+"), " ")
+                        .trim()
+                }
+                .ifBlank { "<no-html>" }
+        }
+
     @Test
     fun convertsPackagedMarkdownWithMermaidToEpub3() {
         val workDir = File(startPython(), "markdown-epub3-e2e-${System.nanoTime()}").apply { mkdirs() }
@@ -51,8 +71,6 @@ class MarkdownConversionInstrumentedTest {
         val output = File(workDir, "android-e2e.epub")
 
         try {
-            // UTF-8 input includes a hidden NUL inside the Mermaid label. Before
-            // the sanitizer this was copied into the SVG and rejected by lxml.
             writeMarkdown(input)
 
             val result = Python.getInstance()
@@ -79,9 +97,7 @@ class MarkdownConversionInstrumentedTest {
 
                 val names = mutableListOf<String>()
                 val entries = epub.entries()
-                while (entries.hasMoreElements()) {
-                    names += entries.nextElement().name
-                }
+                while (entries.hasMoreElements()) names += entries.nextElement().name
 
                 val svgName = names.firstOrNull { it.endsWith(".svg", ignoreCase = true) }
                 assertTrue("Converted EPUB does not contain the rendered Mermaid SVG: $names", svgName != null)
@@ -95,9 +111,7 @@ class MarkdownConversionInstrumentedTest {
                 val documentText = names
                     .filter { it.endsWith(".html", true) || it.endsWith(".xhtml", true) }
                     .joinToString("\n") { name ->
-                        epub.getInputStream(epub.getEntry(name))
-                            .bufferedReader(Charsets.UTF_8)
-                            .use { it.readText() }
+                        epub.getInputStream(epub.getEntry(name)).bufferedReader(Charsets.UTF_8).use { it.readText() }
                     }
                 assertTrue("Heading was lost during conversion", documentText.contains("Android emulator E2E"))
                 assertTrue("Unicode content was lost during conversion", documentText.contains("שלום"))
@@ -115,12 +129,9 @@ class MarkdownConversionInstrumentedTest {
         val output = File(workDir, "kindle-usb-e2e.azw3")
 
         try {
-            // No BOM: exercise the alternating-NUL UTF-16LE detection path as
-            // well as removal of the deliberately embedded invalid control.
             writeMarkdown(input, Charsets.UTF_16LE)
 
-            val result = Python.getInstance()
-                .getModule("converter")
+            val result = Python.getInstance().getModule("converter")
                 .callAttr("convert", input.absolutePath, output.absolutePath)
             val success = result.callAttr("__getitem__", "success").toBoolean()
             val message = result.callAttr("__getitem__", "message").toString()
@@ -140,10 +151,7 @@ class MarkdownConversionInstrumentedTest {
             )
 
             val rewrittenMarkdown = input.readText(Charsets.UTF_8)
-            assertTrue(
-                "Mermaid preprocessing did not run before AZW3 conversion",
-                rewrittenMarkdown.contains("![Mermaid diagram]"),
-            )
+            assertTrue("Mermaid preprocessing did not run before AZW3 conversion", rewrittenMarkdown.contains("![Mermaid diagram]"))
             assertTrue("Markdown was not normalized to readable UTF-8", rewrittenMarkdown.contains("שלום"))
             assertTrue("Normalized Markdown still contains a NUL", !rewrittenMarkdown.contains(0.toChar()))
         } finally {
@@ -156,16 +164,19 @@ class MarkdownConversionInstrumentedTest {
         val workDir = File(startPython(), "txt-sanitizer-e2e-${System.nanoTime()}").apply { mkdirs() }
         val input = File(workDir, "plain-control.txt")
         val output = File(workDir, "plain-control.epub")
+        val debugDir = File(workDir, "debug-pipeline")
         val source = "Plain text sanitizer\u0000 keeps readable text — שלום.\n\nSecond paragraph."
 
         try {
-            // Deliberately omit the BOM so plain TXT exercises the same encoding
-            // and alternating-NUL detection which protects Markdown inputs.
             input.writeBytes(source.toByteArray(Charsets.UTF_16LE))
 
-            val result = Python.getInstance()
-                .getModule("converter")
-                .callAttr("convert", input.absolutePath, output.absolutePath)
+            val result = Python.getInstance().getModule("converter").callAttr(
+                "convert",
+                input.absolutePath,
+                output.absolutePath,
+                "--debug-pipeline",
+                debugDir.absolutePath,
+            )
             val success = result.callAttr("__getitem__", "success").toBoolean()
             val message = result.callAttr("__getitem__", "message").toString()
 
@@ -181,27 +192,23 @@ class MarkdownConversionInstrumentedTest {
             ZipFile(output).use { epub ->
                 val names = mutableListOf<String>()
                 val entries = epub.entries()
-                while (entries.hasMoreElements()) {
-                    names += entries.nextElement().name
-                }
+                while (entries.hasMoreElements()) names += entries.nextElement().name
                 val contentNames = names.filter {
-                    it.endsWith(".html", true) ||
-                        it.endsWith(".xhtml", true) ||
-                        it.endsWith(".htm", true)
+                    it.endsWith(".html", true) || it.endsWith(".xhtml", true) || it.endsWith(".htm", true)
                 }
                 assertTrue("TXT EPUB has no HTML-family content entries: $names", contentNames.isNotEmpty())
 
                 val documentText = contentNames.joinToString("\n") { name ->
-                    epub.getInputStream(epub.getEntry(name))
-                        .bufferedReader(Charsets.UTF_8)
-                        .use { it.readText() }
+                    epub.getInputStream(epub.getEntry(name)).bufferedReader(Charsets.UTF_8).use { it.readText() }
                 }
                 val visibleText = documentText
                     .replace(Regex("<[^>]+>"), " ")
                     .replace(Regex("\\s+"), " ")
                     .trim()
+                val stages = listOf("input", "parsed", "structure", "processed")
+                    .joinToString(" | ") { stage -> "$stage=${visibleHtmlUnder(File(debugDir, stage)).take(500)}" }
                 assertTrue(
-                    "Sanitized TXT content was lost in EPUB; entries=$contentNames; text=${visibleText.take(500)}",
+                    "Sanitized TXT content was lost in EPUB; entries=$contentNames; text=${visibleText.take(500)}; $stages",
                     visibleText.contains("Plain text sanitizer"),
                 )
                 assertTrue("TXT EPUB contains an XML-invalid NUL", !documentText.contains(0.toChar()))
