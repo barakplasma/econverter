@@ -105,14 +105,14 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: |
+            set +e
             set -o pipefail
             ./gradlew connectedDebugAndroidTest \
               -Pandroid.testInstrumentationRunnerArguments.class=com.econverter.app.MarkdownConversionInstrumentedTest \
               --stacktrace 2>&1 | tee android-e2e.log
-
-      - name: Capture Android logcat after failure
-        if: always() && steps.e2e.outcome != 'success'
-        run: adb logcat -d > android-logcat.txt 2>&1 || true
+            status=${PIPESTATUS[0]}
+            adb logcat -d > android-logcat.txt 2>&1 || true
+            exit $status
 
       - name: Upload Android test reports
         if: always()
