@@ -9,6 +9,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.nio.charset.Charset
 import java.util.zip.ZipFile
 
 @RunWith(AndroidJUnit4::class)
@@ -21,26 +22,26 @@ class MarkdownConversionInstrumentedTest {
         return context.cacheDir
     }
 
-    private fun writeMarkdown(input: File) {
-        input.writeText(
-            """
-            # Android emulator E2E
+    private fun markdownFixture(): String =
+        """
+        # Android emulator E2E
 
-            This text includes Unicode to exercise packaged encoding detection: שלום — café.
+        This text includes Unicode to exercise packaged encoding detection: שלום — café.
 
-            | Feature | Result |
-            |---|---|
-            | Markdown | packaged runtime |
-            | Mermaid | rendered for ebook output |
+        | Feature | Result |
+        |---|---|
+        | Markdown | packaged runtime |
+        | Mermaid | rendered for ebook output |
 
-            ```mermaid
-            flowchart LR
-                Markdown --> SVG
-                SVG --> Ebook
-            ```
-            """.trimIndent(),
-            Charsets.UTF_8,
-        )
+        ```mermaid
+        flowchart LR
+            Markdown["Hidden<NUL>control"] --> SVG
+            SVG --> Ebook
+        ```
+        """.trimIndent().replace("<NUL>", 0.toChar().toString())
+
+    private fun writeMarkdown(input: File, charset: Charset = Charsets.UTF_8) {
+        input.writeBytes(markdownFixture().toByteArray(charset))
     }
 
     @Test
@@ -50,6 +51,8 @@ class MarkdownConversionInstrumentedTest {
         val output = File(workDir, "android-e2e.epub")
 
         try {
+            // UTF-8 input includes a hidden NUL inside the Mermaid label. Before
+            // the sanitizer this was copied into the SVG and rejected by lxml.
             writeMarkdown(input)
 
             val result = Python.getInstance()
@@ -87,6 +90,7 @@ class MarkdownConversionInstrumentedTest {
                     .bufferedReader(Charsets.UTF_8)
                     .use { it.readText() }
                 assertTrue("Rendered resource is not SVG", svg.contains("<svg"))
+                assertTrue("Rendered SVG still contains an XML-invalid NUL", !svg.contains(0.toChar()))
 
                 val documentText = names
                     .filter { it.endsWith(".html", true) || it.endsWith(".xhtml", true) }
@@ -105,13 +109,15 @@ class MarkdownConversionInstrumentedTest {
     }
 
     @Test
-    fun convertsPackagedMarkdownWithMermaidToAzw3() {
+    fun convertsPackagedUtf16MarkdownWithMermaidToAzw3() {
         val workDir = File(startPython(), "markdown-azw3-e2e-${System.nanoTime()}").apply { mkdirs() }
         val input = File(workDir, "kindle-usb-e2e.md")
         val output = File(workDir, "kindle-usb-e2e.azw3")
 
         try {
-            writeMarkdown(input)
+            // No BOM: exercise the alternating-NUL UTF-16LE detection path as
+            // well as removal of the deliberately embedded invalid control.
+            writeMarkdown(input, Charsets.UTF_16LE)
 
             val result = Python.getInstance()
                 .getModule("converter")
@@ -138,6 +144,8 @@ class MarkdownConversionInstrumentedTest {
                 "Mermaid preprocessing did not run before AZW3 conversion",
                 rewrittenMarkdown.contains("![Mermaid diagram]"),
             )
+            assertTrue("Markdown was not normalized to readable UTF-8", rewrittenMarkdown.contains("שלום"))
+            assertTrue("Normalized Markdown still contains a NUL", !rewrittenMarkdown.contains(0.toChar()))
         } finally {
             workDir.deleteRecursively()
         }
