@@ -116,14 +116,20 @@ jobs:
         if: steps.test_build.outcome == 'success'
         continue-on-error: true
         run: |
-          set +e
+          set -euo pipefail
           echo no | avdmanager create avd \
             --force \
             --name econverter-e2e \
             --package 'system-images;android-35;google_apis;x86_64' \
             --device 'pixel_7'
 
-          "$ANDROID_HOME/emulator/emulator" \
+          emulator_bin="$(command -v emulator || true)"
+          if [[ -z "$emulator_bin" || ! -x "$emulator_bin" ]]; then
+            echo 'Android emulator binary was not found' | tee android-e2e.log
+            exit 1
+          fi
+
+          "$emulator_bin" \
             -avd econverter-e2e \
             -no-window \
             -gpu swiftshader_indirect \
@@ -140,9 +146,22 @@ jobs:
           }
           trap cleanup EXIT
 
-          adb wait-for-device
+          sleep 5
+          if ! kill -0 "$emulator_pid" >/dev/null 2>&1; then
+            cat emulator.log
+            echo 'Android emulator process exited during startup' | tee android-e2e.log
+            exit 1
+          fi
+
+          if ! timeout 180 adb wait-for-device; then
+            cat emulator.log
+            echo 'adb did not connect to the Android emulator' | tee android-e2e.log
+            exit 1
+          fi
+
           if ! timeout 300 bash -c 'until [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" == "1" ]]; do sleep 5; done'; then
             adb logcat -d > android-logcat.txt 2>&1 || true
+            cat emulator.log
             echo 'Android emulator did not finish booting' | tee android-e2e.log
             exit 1
           fi
@@ -151,9 +170,10 @@ jobs:
           adb shell settings put global transition_animation_scale 0
           adb shell settings put global animator_duration_scale 0
 
-          set -o pipefail
+          set +e
           ./gradlew connectedDebugAndroidTest --stacktrace 2>&1 | tee android-e2e.log
           status=${PIPESTATUS[0]}
+          set -e
           adb logcat -d > android-logcat.txt 2>&1 || true
           exit $status
 
