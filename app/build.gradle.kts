@@ -14,8 +14,8 @@ android {
         applicationId = "com.econverter.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 9
-        versionName = "1.0.6-markdown.3"
+        versionCode = 10
+        versionName = "1.0.6-markdown.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
