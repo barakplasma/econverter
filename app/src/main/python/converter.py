@@ -8,6 +8,7 @@ import traceback
 
 
 MARKDOWN_EXTENSIONS = {'.md', '.markdown'}
+TEXT_EXTENSIONS = MARKDOWN_EXTENSIONS | {'.txt', '.text', '.textile'}
 
 
 def _parse_extra_args(extra_args):
@@ -95,14 +96,14 @@ def _install_android_compat():
         toc_module.base = CallableBaseProxy(toc_module.base)
 
 
-def _decode_markdown_bytes(raw):
-    """Decode Markdown bytes and remove characters XML cannot represent.
+def _decode_text_bytes(raw):
+    """Decode text-like input bytes and remove characters XML cannot represent.
 
-    Android document providers preserve the source bytes, so Markdown may be
-    UTF-8, UTF-16 with a BOM, or UTF-16 without one. The latter commonly appears
-    as an alternating NUL stream if it is decoded as UTF-8. Hidden NUL/control
-    characters can also occur inside generated Mermaid labels and must not reach
-    the XML-based ebook pipeline.
+    Android document providers preserve the source bytes, so Markdown and plain
+    text may be UTF-8, UTF-16 with a BOM, or UTF-16 without one. The latter
+    commonly appears as an alternating NUL stream if decoded as UTF-8. Hidden
+    NUL/control characters can also occur in generated or copied documents and
+    must not reach the XML-based ebook pipeline.
     """
     from ebook_converter.ebooks.chardet import xml_to_unicode
     from ebook_converter.utils.cleantext import clean_xml_chars
@@ -123,9 +124,9 @@ def _decode_markdown_bytes(raw):
         if raw.startswith(bom):
             return clean_xml_chars(raw.decode(encoding, 'replace'))
 
-    # UTF-16 without a BOM is easy to identify in mostly ASCII Markdown by
-    # which byte position contains the repeated NULs. Do this before chardet:
-    # mixed Hebrew/emoji documents can otherwise be misidentified as Latin-1.
+    # UTF-16 without a BOM is easy to identify in mostly ASCII text by which
+    # byte position contains repeated NULs. Do this before chardet: mixed
+    # Hebrew/emoji documents can otherwise be misidentified as Latin-1.
     sample = raw[:64 * 1024]
     pairs = max(1, len(sample) // 2)
     even_nuls = sample[0::2].count(0)
@@ -143,25 +144,28 @@ def _decode_markdown_bytes(raw):
     return clean_xml_chars(text)
 
 
-def _prepare_markdown(input_path, log):
-    """Normalize Markdown and render fenced Mermaid blocks to local SVG."""
-    if os.path.splitext(input_path)[1].lower() not in MARKDOWN_EXTENSIONS:
+def _prepare_text_input(input_path, log):
+    """Normalize text-like input and render Markdown Mermaid blocks to SVG."""
+    extension = os.path.splitext(input_path)[1].lower()
+    if extension not in TEXT_EXTENSIONS:
         return None
 
-    from ebook_converter.ebooks.txt.mermaid import render_fenced_diagrams
-
     with open(input_path, 'rb') as source_file:
-        source = _decode_markdown_bytes(source_file.read())
+        source = _decode_text_bytes(source_file.read())
 
-    rendered, diagram_temp_dir = render_fenced_diagrams(
-        source,
-        os.path.dirname(input_path),
-        log,
-    )
+    diagram_temp_dir = None
+    rendered = source
+    if extension in MARKDOWN_EXTENSIONS:
+        from ebook_converter.ebooks.txt.mermaid import render_fenced_diagrams
+
+        rendered, diagram_temp_dir = render_fenced_diagrams(
+            source,
+            os.path.dirname(input_path),
+            log,
+        )
 
     # Always rewrite the app's temporary input copy as clean UTF-8. This fixes
-    # UTF-16 Markdown and removes hidden XML-invalid controls even when the file
-    # contains no Mermaid fences.
+    # UTF-16 input and removes XML-invalid controls even when no Mermaid exists.
     with open(input_path, 'w', encoding='utf-8', newline='\n') as output_file:
         output_file.write(rendered)
 
@@ -177,7 +181,7 @@ def convert(input_path, output_path, *extra_args):
         from ebook_converter.ebooks.conversion.plumber import Plumber
 
         _install_android_compat()
-        diagram_temp_dir = _prepare_markdown(input_path, logging.default_log)
+        diagram_temp_dir = _prepare_text_input(input_path, logging.default_log)
         plumber = Plumber(input_path, output_path, logging.default_log)
 
         if extra_args:
