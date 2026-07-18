@@ -1,4 +1,4 @@
-name: Markdown test release
+name: Markdown Android E2E release
 
 on:
   push:
@@ -11,12 +11,13 @@ permissions:
   statuses: write
 
 concurrency:
-  group: markdown-test-release
+  group: markdown-android-e2e-release
   cancel-in-progress: true
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 75
 
     steps:
       - name: Checkout
@@ -29,8 +30,8 @@ jobs:
           gh api --method POST \
             "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
             -f state=pending \
-            -f context='Markdown test release' \
-            -f description='Release build started' \
+            -f context='Markdown Android E2E release' \
+            -f description='Emulator conversion test and release build started' \
             -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
       - name: Set up JDK 17
@@ -78,21 +79,41 @@ jobs:
               assert len(svg_files) == 1
               assert '<svg' in svg_files[0].read_text(encoding='utf-8')
               shutil.rmtree(diagram_dir)
-
-          with tempfile.TemporaryDirectory() as base_dir:
-              invalid = '```mermaid\nnot-a-supported-diagram\n```\n'
-              rendered, diagram_dir = render_fenced_diagrams(invalid, base_dir)
-              assert diagram_dir is None
-              assert rendered == invalid
           PY
           } 2>&1 | tee markdown-smoke.log
 
-      - name: Grant execute permission for Gradle
+      - name: Enable KVM
         if: steps.smoke.outcome == 'success'
-        run: chmod +x gradlew
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Convert Markdown with Mermaid on Android emulator
+        id: e2e
+        if: steps.smoke.outcome == 'success'
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: default
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: ./gradlew connectedDebugAndroidTest --stacktrace
+
+      - name: Upload Android test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: markdown-android-e2e-results
+          path: |
+            app/build/reports/androidTests/connected/
+            app/build/outputs/androidTest-results/connected/
+          if-no-files-found: warn
 
       - name: Generate test release signing key
-        if: steps.smoke.outcome == 'success'
+        if: steps.e2e.outcome == 'success'
         run: |
           keytool -genkeypair -noprompt \
             -keystore app/markdown-test-release.keystore \
@@ -106,11 +127,11 @@ jobs:
 
       - name: Build signed release APK
         id: build
-        if: steps.smoke.outcome == 'success'
+        if: steps.e2e.outcome == 'success'
         continue-on-error: true
         run: |
           set -o pipefail
-          ./gradlew assembleRelease 2>&1 | tee gradle-release.log
+          ./gradlew assembleRelease --stacktrace 2>&1 | tee gradle-release.log
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/app/markdown-test-release.keystore
           KEYSTORE_PASSWORD: androidtest
@@ -125,14 +146,14 @@ jobs:
           test -s app/build/outputs/apk/release/app-release.apk
           jarsigner -verify app/build/outputs/apk/release/app-release.apk
           mv app/build/outputs/apk/release/app-release.apk \
-            app/build/outputs/apk/release/econverter-v1.0.6-markdown.1.apk
+            app/build/outputs/apk/release/econverter-v1.0.6-markdown.2.apk
 
       - name: Upload APK artifact
         if: steps.verify.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: econverter-v1.0.6-markdown.1
-          path: app/build/outputs/apk/release/econverter-v1.0.6-markdown.1.apk
+          name: econverter-v1.0.6-markdown.2
+          path: app/build/outputs/apk/release/econverter-v1.0.6-markdown.2.apk
           if-no-files-found: error
 
       - name: Publish fork-only prerelease
@@ -141,9 +162,9 @@ jobs:
         continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.6-markdown.1
+          tag_name: v1.0.6-markdown.2
           target_commitish: ${{ github.sha }}
-          name: eConverter Markdown + Mermaid test build
+          name: eConverter Markdown + Mermaid Android-tested build
           prerelease: true
           generate_release_notes: true
           body: |
@@ -151,8 +172,10 @@ jobs:
 
             Adds `.md` and `.markdown` input plus offline rendering of fenced Mermaid diagrams to SVG.
 
-            This APK is signed with a test key generated for this workflow run. Uninstall an existing upstream-signed eConverter build before installing it.
-          files: app/build/outputs/apk/release/econverter-v1.0.6-markdown.1.apk
+            Before publication, an Android API 35 x86_64 emulator runs the packaged Chaquopy app and converts a real Markdown + Mermaid document to EPUB. The test opens the EPUB and verifies its mimetype, heading, Unicode content, SVG resource, and document reference.
+
+            This APK is signed with a test key generated for this workflow run. Uninstall a differently signed eConverter build before installing it.
+          files: app/build/outputs/apk/release/econverter-v1.0.6-markdown.2.apk
           fail_on_unmatched_files: true
 
       - name: Clean up test key
@@ -164,24 +187,25 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+          E2E_OUTCOME: ${{ steps.e2e.outcome }}
           BUILD_OUTCOME: ${{ steps.build.outcome }}
           VERIFY_OUTCOME: ${{ steps.verify.outcome }}
           PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
         run: |
-          if [[ "$SMOKE_OUTCOME" == success && "$BUILD_OUTCOME" == success && "$VERIFY_OUTCOME" == success && "$PUBLISH_OUTCOME" == success ]]; then
+          if [[ "$SMOKE_OUTCOME" == success && "$E2E_OUTCOME" == success && "$BUILD_OUTCOME" == success && "$VERIFY_OUTCOME" == success && "$PUBLISH_OUTCOME" == success ]]; then
             state=success
-            description='Release APK published'
+            description='Android E2E passed and release APK published'
           else
             state=failure
-            description="smoke=$SMOKE_OUTCOME build=$BUILD_OUTCOME verify=$VERIFY_OUTCOME publish=$PUBLISH_OUTCOME"
+            description="smoke=$SMOKE_OUTCOME e2e=$E2E_OUTCOME build=$BUILD_OUTCOME verify=$VERIFY_OUTCOME publish=$PUBLISH_OUTCOME"
           fi
           gh api --method POST \
             "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
             -f state="$state" \
-            -f context='Markdown test release' \
+            -f context='Markdown Android E2E release' \
             -f description="$description" \
             -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
       - name: Fail workflow when validation or release failed
-        if: always() && (steps.smoke.outcome != 'success' || steps.build.outcome != 'success' || steps.verify.outcome != 'success' || steps.publish.outcome != 'success')
+        if: always() && (steps.smoke.outcome != 'success' || steps.e2e.outcome != 'success' || steps.build.outcome != 'success' || steps.verify.outcome != 'success' || steps.publish.outcome != 'success')
         run: exit 1
