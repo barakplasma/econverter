@@ -2,8 +2,11 @@
 Wrapper for ebook-converter to be called from Android/Chaquopy.
 """
 import codecs
+import html
 import os
+import re
 import shutil
+import tempfile
 import traceback
 
 
@@ -44,15 +47,13 @@ def _install_android_compat():
         if isinstance(data, bytes):
             data = data.decode('utf-8', 'replace')
         root = lxml_html.document_fromstring(data)
-        # Round-trip through XML serialization so the downstream OEB parser gets
-        # well-formed markup and doesn't need the native html5-parser package.
         return etree.fromstring(etree.tostring(root, encoding='utf-8', method='xml'))
 
-    def fix_resources(self, html, base_dir):
+    def fix_resources(self, html_data, base_dir):
         try:
-            root = parse_document(html)
+            root = parse_document(html_data)
         except (ValueError, etree.ParserError, etree.XMLSyntaxError):
-            return html
+            return html_data
 
         for img in root.xpath("//*[local-name()='img'][@src]"):
             src = img.get('src')
@@ -70,9 +71,6 @@ def _install_android_compat():
         return parse_document(data)
 
     def opf_xpath(self, expr):
-        # The bundled desktop port accidentally passed a Clark-notation tag
-        # string as lxml's namespace mapping. Define the two prefixes used by
-        # Container.opf_xpath explicitly for the Android runtime.
         return self.opf.xpath(expr, namespaces={
             'opf': constants.OPF2_NS,
             'dc': constants.DC11_NS,
@@ -98,22 +96,13 @@ def _install_android_compat():
 
 
 def _decode_text_bytes(raw):
-    """Decode text-like input bytes and remove characters XML cannot represent.
-
-    Android document providers preserve the source bytes, so Markdown and plain
-    text may be UTF-8, UTF-16 with a BOM, or UTF-16 without one. The latter
-    commonly appears as an alternating NUL stream if decoded as UTF-8. Hidden
-    NUL/control characters can also occur in generated or copied documents and
-    must not reach the XML-based ebook pipeline.
-    """
+    """Decode text-like bytes and remove characters XML cannot represent."""
     from ebook_converter.ebooks.chardet import xml_to_unicode
     from ebook_converter.utils.cleantext import clean_xml_chars
 
     if not raw:
         return ''
 
-    # Check UTF-32 before UTF-16 because the little-endian UTF-32 BOM starts
-    # with the UTF-16LE BOM bytes.
     bom_encodings = (
         (codecs.BOM_UTF32_LE, 'utf-32'),
         (codecs.BOM_UTF32_BE, 'utf-32'),
@@ -125,9 +114,6 @@ def _decode_text_bytes(raw):
         if raw.startswith(bom):
             return clean_xml_chars(raw.decode(encoding, 'replace'))
 
-    # UTF-16 without a BOM is easy to identify in mostly ASCII text by which
-    # byte position contains repeated NULs. Do this before chardet: mixed
-    # Hebrew/emoji documents can otherwise be misidentified as Latin-1.
     sample = raw[:64 * 1024]
     pairs = max(1, len(sample) // 2)
     even_nuls = sample[0::2].count(0)
@@ -145,16 +131,43 @@ def _decode_text_bytes(raw):
     return clean_xml_chars(text)
 
 
-def _prepare_text_input(input_path, log):
-    """Normalize text-like input and render Markdown Mermaid blocks to SVG."""
+def _write_plain_text_html(input_path, source):
+    """Create lossless HTML for default `.txt`/`.text` conversion.
+
+    The bundled TXT plugin can silently consume the first short paragraph while
+    constructing its intermediate OEB document. Escaped HTML avoids that path
+    while retaining paragraph and hard-line boundaries.
+    """
+    temp_dir = tempfile.mkdtemp(prefix='.econverter-text-', dir=os.path.dirname(input_path))
+    title = os.path.splitext(os.path.basename(input_path))[0] or 'Text document'
+    stripped = source.strip('\n')
+    paragraphs = re.split(r'\n[ \t]*\n+', stripped) if stripped else ['']
+    body = []
+    for paragraph in paragraphs:
+        escaped_lines = [html.escape(line, quote=False) for line in paragraph.split('\n')]
+        body.append('<p>{}</p>'.format('<br/>\n'.join(escaped_lines)))
+
+    document = (
+        '<!DOCTYPE html>\n'
+        '<html><head><meta charset="utf-8"/>'
+        '<title>{}</title></head><body>\n{}\n</body></html>\n'
+    ).format(html.escape(title), '\n'.join(body))
+    html_path = os.path.join(temp_dir, 'index.html')
+    with open(html_path, 'w', encoding='utf-8', newline='\n') as output_file:
+        output_file.write(document)
+    return html_path, temp_dir
+
+
+def _prepare_text_input(input_path, log, plain_as_html=False):
+    """Normalize text-like input and return the path handed to Plumber."""
     extension = os.path.splitext(input_path)[1].lower()
     if extension not in TEXT_EXTENSIONS:
-        return None
+        return input_path, []
 
     with open(input_path, 'rb') as source_file:
         source = _decode_text_bytes(source_file.read())
 
-    diagram_temp_dir = None
+    cleanup_dirs = []
     rendered = source
     if extension in MARKDOWN_EXTENSIONS:
         from ebook_converter.ebooks.txt.mermaid import render_fenced_diagrams
@@ -164,35 +177,43 @@ def _prepare_text_input(input_path, log):
             os.path.dirname(input_path),
             log,
         )
+        if diagram_temp_dir is not None:
+            cleanup_dirs.append(diagram_temp_dir)
 
-    # Always rewrite the app's temporary input copy as clean UTF-8. This fixes
-    # UTF-16 input and removes XML-invalid controls even when no Mermaid exists.
+    # Preserve a normalized UTF-8 copy for every text-like source, even when a
+    # temporary HTML document is used as the actual conversion input.
     with open(input_path, 'w', encoding='utf-8', newline='\n') as output_file:
         output_file.write(rendered)
 
-    return diagram_temp_dir
+    if plain_as_html:
+        prepared_path, plain_temp_dir = _write_plain_text_html(input_path, rendered)
+        cleanup_dirs.append(plain_temp_dir)
+        return prepared_path, cleanup_dirs
+
+    return input_path, cleanup_dirs
 
 
 def convert(input_path, output_path, *extra_args):
     """Convert ebook. Output format determined by extension. Returns dict."""
-    diagram_temp_dir = None
+    cleanup_dirs = []
     try:
         from ebook_converter import logging
         from ebook_converter.customize.conversion import OptionRecommendation
         from ebook_converter.ebooks.conversion.plumber import Plumber
 
         _install_android_compat()
-        diagram_temp_dir = _prepare_text_input(input_path, logging.default_log)
-        plumber = Plumber(input_path, output_path, logging.default_log)
-
         recommendations = _parse_extra_args(extra_args)
         input_extension = os.path.splitext(input_path)[1].lower()
-        if input_extension in PLAIN_TEXT_EXTENSIONS and 'formatting_type' not in recommendations:
-            # Calibre's automatic heuristic formatter can interpret the first
-            # short paragraph as a title and remove it from the ebook body.
-            # Plain TXT should preserve the source unless the caller explicitly
-            # requests markdown, textile, or heuristic formatting.
-            recommendations['formatting_type'] = 'plain'
+        plain_as_html = (
+            input_extension in PLAIN_TEXT_EXTENSIONS and
+            'formatting_type' not in recommendations
+        )
+        prepared_input, cleanup_dirs = _prepare_text_input(
+            input_path,
+            logging.default_log,
+            plain_as_html=plain_as_html,
+        )
+        plumber = Plumber(prepared_input, output_path, logging.default_log)
 
         if recommendations:
             plumber.merge_ui_recommendations([
@@ -210,5 +231,5 @@ def convert(input_path, output_path, *extra_args):
     except Exception as e:
         return {'success': False, 'message': f'{type(e).__name__}: {e}\n{traceback.format_exc()}'}
     finally:
-        if diagram_temp_dir is not None:
-            shutil.rmtree(diagram_temp_dir, ignore_errors=True)
+        for directory in cleanup_dirs:
+            shutil.rmtree(directory, ignore_errors=True)
