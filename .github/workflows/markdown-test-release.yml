@@ -7,21 +7,44 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
   statuses: write
 
 concurrency:
-  group: markdown-android-e2e-release-v2
+  group: markdown-android-e2e-release-master
   cancel-in-progress: true
 
 jobs:
   release:
     runs-on: ubuntu-latest
     timeout-minutes: 75
+    concurrency:
+      group: markdown-android-e2e-release-master-release
+      cancel-in-progress: true
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Cancel superseded workflow runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for status in queued in_progress; do
+            gh run list \
+              --workflow markdown-test-release.yml \
+              --status "$status" \
+              --limit 100 \
+              --json databaseId \
+              --jq '.[].databaseId' |
+            while read -r run_id; do
+              if [[ -n "$run_id" && "$run_id" -lt "$GITHUB_RUN_ID" ]]; then
+                echo "Cancelling superseded run $run_id"
+                gh run cancel "$run_id" || true
+              fi
+            done
+          done
 
       - name: Mark build pending
         env:
