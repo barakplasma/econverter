@@ -89,24 +89,69 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Convert Markdown with Mermaid on Android emulator
-        id: e2e
+      - name: Install Android API 35 emulator image
+        if: steps.smoke.outcome == 'success'
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager \
+            'platform-tools' \
+            'emulator' \
+            'platforms;android-35' \
+            'system-images;android-35;google_apis;x86_64'
+
+      - name: Build packaged Android test APKs
+        id: test_build
         if: steps.smoke.outcome == 'success'
         continue-on-error: true
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          target: default
-          arch: x86_64
-          disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
-          script: |
-            set +e
-            set -o pipefail
-            ./gradlew connectedDebugAndroidTest --stacktrace 2>&1 | tee android-e2e.log
-            status=${PIPESTATUS[0]}
+        run: |
+          set -o pipefail
+          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace 2>&1 | tee android-test-build.log
+
+      - name: Convert Markdown with Mermaid on Android emulator
+        id: e2e
+        if: steps.test_build.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set +e
+          echo no | avdmanager create avd \
+            --force \
+            --name econverter-e2e \
+            --package 'system-images;android-35;google_apis;x86_64' \
+            --device 'pixel_7'
+
+          "$ANDROID_HOME/emulator/emulator" \
+            -avd econverter-e2e \
+            -no-window \
+            -gpu swiftshader_indirect \
+            -no-snapshot \
+            -noaudio \
+            -no-boot-anim \
+            -camera-back none \
+            > emulator.log 2>&1 &
+          emulator_pid=$!
+
+          cleanup() {
+            adb emu kill >/dev/null 2>&1 || true
+            kill "$emulator_pid" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          adb wait-for-device
+          if ! timeout 300 bash -c 'until [[ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" == "1" ]]; do sleep 5; done'; then
             adb logcat -d > android-logcat.txt 2>&1 || true
-            exit $status
+            echo 'Android emulator did not finish booting' | tee android-e2e.log
+            exit 1
+          fi
+
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+
+          set -o pipefail
+          ./gradlew connectedDebugAndroidTest --stacktrace 2>&1 | tee android-e2e.log
+          status=${PIPESTATUS[0]}
+          adb logcat -d > android-logcat.txt 2>&1 || true
+          exit $status
 
       - name: Upload Android test reports
         if: always()
@@ -114,8 +159,11 @@ jobs:
         with:
           name: markdown-android-e2e-results
           path: |
+            markdown-smoke.log
+            android-test-build.log
             android-e2e.log
             android-logcat.txt
+            emulator.log
             app/build/reports/androidTests/connected/
             app/build/outputs/androidTest-results/connected/
           if-no-files-found: warn
@@ -195,17 +243,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+          TEST_BUILD_OUTCOME: ${{ steps.test_build.outcome }}
           E2E_OUTCOME: ${{ steps.e2e.outcome }}
           BUILD_OUTCOME: ${{ steps.build.outcome }}
           VERIFY_OUTCOME: ${{ steps.verify.outcome }}
           PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
         run: |
-          if [[ "$SMOKE_OUTCOME" == success && "$E2E_OUTCOME" == success && "$BUILD_OUTCOME" == success && "$VERIFY_OUTCOME" == success && "$PUBLISH_OUTCOME" == success ]]; then
+          if [[ "$SMOKE_OUTCOME" == success && "$TEST_BUILD_OUTCOME" == success && "$E2E_OUTCOME" == success && "$BUILD_OUTCOME" == success && "$VERIFY_OUTCOME" == success && "$PUBLISH_OUTCOME" == success ]]; then
             state=success
             description='Android E2E passed and release APK published'
           else
             state=failure
-            description="smoke=$SMOKE_OUTCOME e2e=$E2E_OUTCOME build=$BUILD_OUTCOME verify=$VERIFY_OUTCOME publish=$PUBLISH_OUTCOME"
+            description="smoke=$SMOKE_OUTCOME test-build=$TEST_BUILD_OUTCOME e2e=$E2E_OUTCOME build=$BUILD_OUTCOME verify=$VERIFY_OUTCOME publish=$PUBLISH_OUTCOME"
           fi
           gh api --method POST \
             "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
@@ -215,5 +264,5 @@ jobs:
             -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
       - name: Fail workflow when validation or release failed
-        if: always() && (steps.smoke.outcome != 'success' || steps.e2e.outcome != 'success' || steps.build.outcome != 'success' || steps.verify.outcome != 'success' || steps.publish.outcome != 'success')
+        if: always() && (steps.smoke.outcome != 'success' || steps.test_build.outcome != 'success' || steps.e2e.outcome != 'success' || steps.build.outcome != 'success' || steps.verify.outcome != 'success' || steps.publish.outcome != 'success')
         run: exit 1
