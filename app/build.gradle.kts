@@ -67,6 +67,8 @@ chaquopy {
             install("filelock>=3.0.12")
             install("html2text>=2020.1.16")
             install("lxml")
+            install("markdown>=3.4,<4")
+            install("merm==0.1.5")
             install("odfpy>=1.4.1")
             install("pillow>=8.0.1")
             install("python-dateutil>=2.8.1")
