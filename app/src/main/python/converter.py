@@ -34,6 +34,7 @@ def _install_android_compat():
     from ebook_converter import constants
     from ebook_converter.ebooks.conversion.plugins.txt_input import TXTInput
     from ebook_converter.ebooks.oeb import parse_utils
+    from ebook_converter.ebooks.oeb.polish import toc as toc_module
     from ebook_converter.ebooks.oeb.polish.container import Container
 
     def parse_document(data):
@@ -74,9 +75,23 @@ def _install_android_compat():
             'dc': constants.DC11_NS,
         })
 
+    class CallableBaseProxy:
+        """Forward module attributes while supporting legacy ``base(ns, tag)``."""
+
+        def __init__(self, module):
+            self._module = module
+
+        def __call__(self, namespace, name):
+            return self._module.tag(namespace, name)
+
+        def __getattr__(self, name):
+            return getattr(self._module, name)
+
     TXTInput.fix_resources = fix_resources
     parse_utils.html5_parse = html5_parse
     Container.opf_xpath = opf_xpath
+    if not callable(toc_module.base):
+        toc_module.base = CallableBaseProxy(toc_module.base)
 
 
 def _prepare_markdown(input_path, log):
