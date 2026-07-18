@@ -5,6 +5,9 @@ import os
 import re
 import shutil
 import tempfile
+from xml.etree import ElementTree
+
+from ebook_converter.utils.cleantext import clean_xml_chars
 
 
 _MERMAID_FENCE = re.compile(
@@ -16,7 +19,7 @@ _MERMAID_FENCE = re.compile(
 
 
 def render_fenced_diagrams(markdown_text, base_dir, log=None):
-    """Replace Mermaid code fences with SVG image references.
+    """Replace Mermaid code fences with validated UTF-8 SVG image references.
 
     Returns ``(updated_markdown, temporary_directory)``. The caller must keep
     the temporary directory alive until referenced resources have been copied,
@@ -33,7 +36,11 @@ def render_fenced_diagrams(markdown_text, base_dir, log=None):
     rendered = {}
 
     def replace(match):
-        source = match.group("source").strip()
+        # Mermaid labels copied from generated documents can contain hidden NUL
+        # or other XML-invalid control characters. merm preserves those in its
+        # SVG text nodes, after which lxml rejects the resource. Strip only
+        # characters which XML 1.0 cannot represent.
+        source = clean_xml_chars(match.group("source")).strip()
         if not source:
             return match.group(0)
 
@@ -42,13 +49,20 @@ def render_fenced_diagrams(markdown_text, base_dir, log=None):
         if filename is None:
             try:
                 svg = render_diagram(source)
+                if isinstance(svg, bytes):
+                    svg = svg.decode("utf-8", "replace")
+                svg = clean_xml_chars(svg)
+                # Validate before exposing the resource to the conversion
+                # pipeline. This catches malformed renderer output here rather
+                # than as an opaque OEB resource parsing failure later.
+                ElementTree.fromstring(svg)
             except Exception as exc:
                 if log is not None:
                     log.warning("Could not render Mermaid diagram: %s", exc)
                 return match.group(0)
 
             filename = "mermaid-{}-{}.svg".format(len(rendered) + 1, digest[:10])
-            with open(os.path.join(temp_dir, filename), "w", encoding="utf-8") as output:
+            with open(os.path.join(temp_dir, filename), "w", encoding="utf-8", newline="\n") as output:
                 output.write(svg)
             rendered[digest] = filename
 
