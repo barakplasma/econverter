@@ -150,4 +150,52 @@ class MarkdownConversionInstrumentedTest {
             workDir.deleteRecursively()
         }
     }
+
+    @Test
+    fun convertsPackagedUtf16PlainTextWithControlChars() {
+        val workDir = File(startPython(), "txt-sanitizer-e2e-${System.nanoTime()}").apply { mkdirs() }
+        val input = File(workDir, "plain-control.txt")
+        val output = File(workDir, "plain-control.epub")
+        val source = "Plain text sanitizer\u0000 keeps readable text — שלום.\n\nSecond paragraph."
+
+        try {
+            // Deliberately omit the BOM so plain TXT exercises the same encoding
+            // and alternating-NUL detection which protects Markdown inputs.
+            input.writeBytes(source.toByteArray(Charsets.UTF_16LE))
+
+            val result = Python.getInstance()
+                .getModule("converter")
+                .callAttr("convert", input.absolutePath, output.absolutePath)
+            val success = result.callAttr("__getitem__", "success").toBoolean()
+            val message = result.callAttr("__getitem__", "message").toString()
+
+            assertTrue(message, success)
+            assertTrue("TXT conversion did not create an EPUB", output.isFile)
+            assertTrue("TXT EPUB is unexpectedly empty", output.length() > 1024)
+
+            val normalizedText = input.readText(Charsets.UTF_8)
+            assertTrue("TXT was not normalized to UTF-8", normalizedText.contains("Plain text sanitizer"))
+            assertTrue("TXT Unicode content was lost", normalizedText.contains("שלום"))
+            assertTrue("Normalized TXT still contains an XML-invalid NUL", !normalizedText.contains(0.toChar()))
+
+            ZipFile(output).use { epub ->
+                val names = mutableListOf<String>()
+                val entries = epub.entries()
+                while (entries.hasMoreElements()) {
+                    names += entries.nextElement().name
+                }
+                val documentText = names
+                    .filter { it.endsWith(".html", true) || it.endsWith(".xhtml", true) }
+                    .joinToString("\n") { name ->
+                        epub.getInputStream(epub.getEntry(name))
+                            .bufferedReader(Charsets.UTF_8)
+                            .use { it.readText() }
+                    }
+                assertTrue("Sanitized TXT content was lost in EPUB", documentText.contains("Plain text sanitizer"))
+                assertTrue("TXT EPUB contains an XML-invalid NUL", !documentText.contains(0.toChar()))
+            }
+        } finally {
+            workDir.deleteRecursively()
+        }
+    }
 }
