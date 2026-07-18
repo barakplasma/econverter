@@ -130,6 +130,7 @@ jobs:
           profile: pixel_7_pro
           cores: 2
           ram-size: 2048M
+          disable-linux-hw-accel: true
           emulator-boot-timeout: 600
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
