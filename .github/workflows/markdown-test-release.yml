@@ -54,7 +54,7 @@ jobs:
             "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
             -f state=pending \
             -f context='Markdown Android E2E release' \
-            -f description='Android 16 UTF-16 and invalid-control conversion tests started' \
+            -f description='Android 16 Markdown and TXT sanitization tests started' \
             -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
       - name: Set up JDK 17
@@ -109,14 +109,7 @@ jobs:
           PY
           } 2>&1 | tee markdown-smoke.log
 
-      - name: Enable KVM
-        if: steps.smoke.outcome == 'success'
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
-
-      - name: Convert Markdown with Mermaid on Android 16 emulator
+      - name: Convert Markdown and TXT on Android 16 emulator
         id: e2e
         if: steps.smoke.outcome == 'success'
         continue-on-error: true
@@ -187,14 +180,14 @@ jobs:
           test -s app/build/outputs/apk/release/app-release.apk
           jarsigner -verify app/build/outputs/apk/release/app-release.apk
           mv app/build/outputs/apk/release/app-release.apk \
-            app/build/outputs/apk/release/econverter-v1.0.6-markdown.4.apk
+            app/build/outputs/apk/release/econverter-v1.0.6-markdown.5.apk
 
       - name: Upload APK artifact
         if: steps.verify.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: econverter-v1.0.6-markdown.4
-          path: app/build/outputs/apk/release/econverter-v1.0.6-markdown.4.apk
+          name: econverter-v1.0.6-markdown.5
+          path: app/build/outputs/apk/release/econverter-v1.0.6-markdown.5.apk
           if-no-files-found: error
 
       - name: Publish fork-only prerelease
@@ -203,9 +196,9 @@ jobs:
         continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.6-markdown.4
+          tag_name: v1.0.6-markdown.5
           target_commitish: ${{ github.sha }}
-          name: eConverter Markdown + Mermaid control-safe Android build
+          name: eConverter Markdown + TXT control-safe Android build
           prerelease: true
           generate_release_notes: true
           body: |
@@ -213,16 +206,17 @@ jobs:
 
             Adds `.md` and `.markdown` input plus offline rendering of fenced Mermaid diagrams to SVG.
 
-            This release normalizes Markdown input to clean UTF-8, detects UTF-16LE/BE Markdown without a BOM, removes XML-invalid controls such as hidden NUL characters, and validates generated Mermaid SVG before ebook conversion.
+            This release applies the same text-ingress protection to `.txt`, `.text`, `.md`, `.markdown`, and `.textile`: encoding detection, BOM-less UTF-16LE/BE detection, normalization to UTF-8, and removal of XML-invalid controls such as hidden NUL characters. Generated Mermaid SVG is also sanitized and validated before ebook conversion.
 
-            Before publication, an Android 16 / API 36 x86_64 emulator runs the packaged Chaquopy app through two real conversions:
+            Before publication, an Android 16 / API 36 x86_64 emulator runs the packaged Chaquopy app through three real conversions:
             - UTF-8 Markdown containing a hidden NUL in a Mermaid label to EPUB 3, validating Unicode, XHTML and the sanitized embedded SVG.
             - BOM-less UTF-16LE Markdown containing Mermaid and a hidden NUL to AZW3, validating normalized UTF-8 input and a non-empty `.azw3` file with the Kindle `BOOKMOBI` signature.
+            - BOM-less UTF-16LE plain TXT containing a hidden NUL to EPUB, validating shared text normalization and control-character removal outside the Markdown path.
 
             The AZW3 output is the file intended for copying into a Kindle's documents folder over USB MTP. The existing Android file export/copy path is unchanged.
 
             This APK is signed with a test key generated for this workflow run. Uninstall a differently signed eConverter build before installing it.
-          files: app/build/outputs/apk/release/econverter-v1.0.6-markdown.4.apk
+          files: app/build/outputs/apk/release/econverter-v1.0.6-markdown.5.apk
           fail_on_unmatched_files: true
 
       - name: Clean up test key
@@ -241,7 +235,7 @@ jobs:
         run: |
           if [[ "$SMOKE_OUTCOME" == success && "$E2E_OUTCOME" == success && "$BUILD_OUTCOME" == success && "$VERIFY_OUTCOME" == success && "$PUBLISH_OUTCOME" == success ]]; then
             state=success
-            description='Android 16 UTF-16/control-safe EPUB3/AZW3 E2E passed'
+            description='Android 16 Markdown/TXT control-safe E2E passed'
           else
             state=failure
             description="smoke=$SMOKE_OUTCOME e2e=$E2E_OUTCOME build=$BUILD_OUTCOME verify=$VERIFY_OUTCOME publish=$PUBLISH_OUTCOME"
