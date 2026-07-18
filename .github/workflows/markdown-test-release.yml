@@ -54,7 +54,7 @@ jobs:
             "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
             -f state=pending \
             -f context='Markdown Android E2E release' \
-            -f description='Android 16 Markdown and TXT sanitization tests started' \
+            -f description='rumdl plus Android 16 Markdown/TXT safety tests started' \
             -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
       - name: Set up JDK 17
@@ -69,8 +69,17 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Lint maintained Markdown structure with rumdl
+        id: rumdl
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python -m pip install 'rumdl==0.2.34'
+          rumdl check . 2>&1 | tee rumdl.log
+
       - name: Smoke-test Markdown and Mermaid rendering
         id: smoke
+        if: steps.rumdl.outcome == 'success'
         continue-on-error: true
         run: |
           set -o pipefail
@@ -111,7 +120,7 @@ jobs:
 
       - name: Convert Markdown and TXT on Android 16 emulator
         id: e2e
-        if: steps.smoke.outcome == 'success'
+        if: steps.rumdl.outcome == 'success' && steps.smoke.outcome == 'success'
         continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -139,6 +148,7 @@ jobs:
         with:
           name: markdown-android-e2e-results
           path: |
+            rumdl.log
             markdown-smoke.log
             android-e2e.log
             android-logcat.txt
@@ -180,14 +190,14 @@ jobs:
           test -s app/build/outputs/apk/release/app-release.apk
           jarsigner -verify app/build/outputs/apk/release/app-release.apk
           mv app/build/outputs/apk/release/app-release.apk \
-            app/build/outputs/apk/release/econverter-v1.0.6-markdown.5.apk
+            app/build/outputs/apk/release/econverter-v1.0.6-markdown.6.apk
 
       - name: Upload APK artifact
         if: steps.verify.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: econverter-v1.0.6-markdown.5
-          path: app/build/outputs/apk/release/econverter-v1.0.6-markdown.5.apk
+          name: econverter-v1.0.6-markdown.6
+          path: app/build/outputs/apk/release/econverter-v1.0.6-markdown.6.apk
           if-no-files-found: error
 
       - name: Publish fork-only prerelease
@@ -196,9 +206,9 @@ jobs:
         continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.6-markdown.5
+          tag_name: v1.0.6-markdown.6
           target_commitish: ${{ github.sha }}
-          name: eConverter Markdown + TXT control-safe Android build
+          name: eConverter Markdown + TXT structurally checked Android build
           prerelease: true
           generate_release_notes: true
           body: |
@@ -208,6 +218,8 @@ jobs:
 
             This release applies the same text-ingress protection to `.txt`, `.text`, `.md`, `.markdown`, and `.textile`: encoding detection, BOM-less UTF-16LE/BE detection, normalization to UTF-8, and removal of XML-invalid controls such as hidden NUL characters. Generated Mermaid SVG is also sanitized and validated before ebook conversion.
 
+            Maintained Markdown in the repository is checked with pinned `rumdl` 0.2.34 using its GFM parser and the structural MD070 nested-fence-collision rule. The linter is a CI defense; it is not bundled into the Android APK and does not replace runtime sanitization or conversion tests.
+
             Before publication, an Android 16 / API 36 x86_64 emulator runs the packaged Chaquopy app through three real conversions:
             - UTF-8 Markdown containing a hidden NUL in a Mermaid label to EPUB 3, validating Unicode, XHTML and the sanitized embedded SVG.
             - BOM-less UTF-16LE Markdown containing Mermaid and a hidden NUL to AZW3, validating normalized UTF-8 input and a non-empty `.azw3` file with the Kindle `BOOKMOBI` signature.
@@ -216,7 +228,7 @@ jobs:
             The AZW3 output is the file intended for copying into a Kindle's documents folder over USB MTP. The existing Android file export/copy path is unchanged.
 
             This APK is signed with a test key generated for this workflow run. Uninstall a differently signed eConverter build before installing it.
-          files: app/build/outputs/apk/release/econverter-v1.0.6-markdown.5.apk
+          files: app/build/outputs/apk/release/econverter-v1.0.6-markdown.6.apk
           fail_on_unmatched_files: true
 
       - name: Clean up test key
@@ -227,18 +239,19 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+          RUMDL_OUTCOME: ${{ steps.rumdl.outcome }}
           SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
           E2E_OUTCOME: ${{ steps.e2e.outcome }}
           BUILD_OUTCOME: ${{ steps.build.outcome }}
           VERIFY_OUTCOME: ${{ steps.verify.outcome }}
           PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
         run: |
-          if [[ "$SMOKE_OUTCOME" == success && "$E2E_OUTCOME" == success && "$BUILD_OUTCOME" == success && "$VERIFY_OUTCOME" == success && "$PUBLISH_OUTCOME" == success ]]; then
+          if [[ "$RUMDL_OUTCOME" == success && "$SMOKE_OUTCOME" == success && "$E2E_OUTCOME" == success && "$BUILD_OUTCOME" == success && "$VERIFY_OUTCOME" == success && "$PUBLISH_OUTCOME" == success ]]; then
             state=success
-            description='Android 16 Markdown/TXT control-safe E2E passed'
+            description='rumdl and Android 16 Markdown/TXT safety E2E passed'
           else
             state=failure
-            description="smoke=$SMOKE_OUTCOME e2e=$E2E_OUTCOME build=$BUILD_OUTCOME verify=$VERIFY_OUTCOME publish=$PUBLISH_OUTCOME"
+            description="rumdl=$RUMDL_OUTCOME smoke=$SMOKE_OUTCOME e2e=$E2E_OUTCOME build=$BUILD_OUTCOME verify=$VERIFY_OUTCOME publish=$PUBLISH_OUTCOME"
           fi
           gh api --method POST \
             "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
@@ -248,5 +261,5 @@ jobs:
             -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
       - name: Fail workflow when validation or release failed
-        if: always() && (steps.smoke.outcome != 'success' || steps.e2e.outcome != 'success' || steps.build.outcome != 'success' || steps.verify.outcome != 'success' || steps.publish.outcome != 'success')
+        if: always() && (steps.rumdl.outcome != 'success' || steps.smoke.outcome != 'success' || steps.e2e.outcome != 'success' || steps.build.outcome != 'success' || steps.verify.outcome != 'success' || steps.publish.outcome != 'success')
         run: exit 1
