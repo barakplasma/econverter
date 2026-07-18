@@ -31,19 +31,21 @@ jobs:
           python-version: '3.11'
 
       - name: Smoke-test Markdown and Mermaid rendering
-        id: smoke
-        continue-on-error: true
         run: |
-          set -o pipefail
-          {
-            python -m pip install 'markdown>=3.4,<4' 'merm==0.1.5'
-            PYTHONPATH=app/src/main/python python - <<'PY'
+          python -m pip install 'markdown>=3.4,<4' 'merm==0.1.5'
+          python - <<'PY'
+          import importlib.util
           import shutil
           import tempfile
           from pathlib import Path
 
-          from ebook_converter.ebooks.txt.mermaid import render_fenced_diagrams
           from markdown import markdown
+
+          module_path = Path('app/src/main/python/ebook_converter/ebooks/txt/mermaid.py')
+          spec = importlib.util.spec_from_file_location('econverter_mermaid', module_path)
+          mermaid = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mermaid)
+          render_fenced_diagrams = mermaid.render_fenced_diagrams
 
           table = markdown('| A | B |\n|---|---|\n| 1 | 2 |', extensions=['tables'])
           assert '<table>' in table
@@ -64,14 +66,11 @@ jobs:
               assert diagram_dir is None
               assert rendered == invalid
           PY
-          } 2>&1 | tee markdown-smoke.log
 
       - name: Grant execute permission for Gradle
-        if: steps.smoke.outcome == 'success'
         run: chmod +x gradlew
 
       - name: Generate test release signing key
-        if: steps.smoke.outcome == 'success'
         run: |
           keytool -genkeypair -noprompt \
             -keystore app/markdown-test-release.keystore \
@@ -84,12 +83,7 @@ jobs:
             -validity 3650
 
       - name: Build signed release APK
-        id: build
-        if: steps.smoke.outcome == 'success'
-        continue-on-error: true
-        run: |
-          set -o pipefail
-          ./gradlew assembleRelease 2>&1 | tee gradle-release.log
+        run: ./gradlew assembleRelease
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/app/markdown-test-release.keystore
           KEYSTORE_PASSWORD: androidtest
@@ -97,9 +91,6 @@ jobs:
           KEY_PASSWORD: androidtest
 
       - name: Verify and rename APK
-        id: verify
-        if: steps.build.outcome == 'success'
-        continue-on-error: true
         run: |
           test -s app/build/outputs/apk/release/app-release.apk
           jarsigner -verify app/build/outputs/apk/release/app-release.apk
@@ -107,7 +98,6 @@ jobs:
             app/build/outputs/apk/release/econverter-v1.0.6-markdown.1.apk
 
       - name: Upload APK artifact
-        if: steps.verify.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: econverter-v1.0.6-markdown.1
@@ -115,9 +105,6 @@ jobs:
           if-no-files-found: error
 
       - name: Publish fork-only prerelease
-        id: publish
-        if: steps.verify.outcome == 'success'
-        continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.6-markdown.1
@@ -134,38 +121,6 @@ jobs:
           files: app/build/outputs/apk/release/econverter-v1.0.6-markdown.1.apk
           fail_on_unmatched_files: true
 
-      - name: Record build status in the repository
-        if: always()
-        env:
-          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
-          BUILD_OUTCOME: ${{ steps.build.outcome }}
-          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
-          PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
-        run: |
-          {
-            echo "commit=$GITHUB_SHA"
-            echo "run=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-            echo "smoke=$SMOKE_OUTCOME"
-            echo "build=$BUILD_OUTCOME"
-            echo "verify=$VERIFY_OUTCOME"
-            echo "publish=$PUBLISH_OUTCOME"
-            echo
-            echo "--- markdown-smoke.log ---"
-            tail -n 120 markdown-smoke.log 2>/dev/null || true
-            echo
-            echo "--- gradle-release.log ---"
-            tail -n 240 gradle-release.log 2>/dev/null || true
-          } > markdown-build-status.txt
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add markdown-build-status.txt
-          git commit -m 'Record Markdown release build status' || true
-          git push origin HEAD:master
-
       - name: Clean up test key
         if: always()
         run: rm -f app/markdown-test-release.keystore
-
-      - name: Fail workflow when validation or release failed
-        if: always() && (steps.smoke.outcome != 'success' || steps.build.outcome != 'success' || steps.verify.outcome != 'success' || steps.publish.outcome != 'success')
-        run: exit 1
