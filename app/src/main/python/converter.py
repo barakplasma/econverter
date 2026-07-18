@@ -1,6 +1,7 @@
 """
 Wrapper for ebook-converter to be called from Android/Chaquopy.
 """
+import codecs
 import os
 import shutil
 import traceback
@@ -94,24 +95,76 @@ def _install_android_compat():
         toc_module.base = CallableBaseProxy(toc_module.base)
 
 
+def _decode_markdown_bytes(raw):
+    """Decode Markdown bytes and remove characters XML cannot represent.
+
+    Android document providers preserve the source bytes, so Markdown may be
+    UTF-8, UTF-16 with a BOM, or UTF-16 without one. The latter commonly appears
+    as an alternating NUL stream if it is decoded as UTF-8. Hidden NUL/control
+    characters can also occur inside generated Mermaid labels and must not reach
+    the XML-based ebook pipeline.
+    """
+    from ebook_converter.ebooks.chardet import xml_to_unicode
+    from ebook_converter.utils.cleantext import clean_xml_chars
+
+    if not raw:
+        return ''
+
+    # Check UTF-32 before UTF-16 because the little-endian UTF-32 BOM starts
+    # with the UTF-16LE BOM bytes.
+    bom_encodings = (
+        (codecs.BOM_UTF32_LE, 'utf-32'),
+        (codecs.BOM_UTF32_BE, 'utf-32'),
+        (codecs.BOM_UTF16_LE, 'utf-16'),
+        (codecs.BOM_UTF16_BE, 'utf-16'),
+        (codecs.BOM_UTF8, 'utf-8-sig'),
+    )
+    for bom, encoding in bom_encodings:
+        if raw.startswith(bom):
+            return clean_xml_chars(raw.decode(encoding, 'replace'))
+
+    # UTF-16 without a BOM is easy to identify in mostly ASCII Markdown by
+    # which byte position contains the repeated NULs. Do this before chardet:
+    # mixed Hebrew/emoji documents can otherwise be misidentified as Latin-1.
+    sample = raw[:64 * 1024]
+    pairs = max(1, len(sample) // 2)
+    even_nuls = sample[0::2].count(0)
+    odd_nuls = sample[1::2].count(0)
+    even_ratio = even_nuls / pairs
+    odd_ratio = odd_nuls / pairs
+
+    if odd_nuls >= 4 and odd_ratio >= 0.15 and odd_nuls >= even_nuls * 2:
+        text = raw.decode('utf-16-le', 'replace')
+    elif even_nuls >= 4 and even_ratio >= 0.15 and even_nuls >= odd_nuls * 2:
+        text = raw.decode('utf-16-be', 'replace')
+    else:
+        text, _encoding = xml_to_unicode(raw, assume_utf8=False)
+
+    return clean_xml_chars(text)
+
+
 def _prepare_markdown(input_path, log):
-    """Render fenced Mermaid blocks and rewrite the temporary Android input copy."""
+    """Normalize Markdown and render fenced Mermaid blocks to local SVG."""
     if os.path.splitext(input_path)[1].lower() not in MARKDOWN_EXTENSIONS:
         return None
 
     from ebook_converter.ebooks.txt.mermaid import render_fenced_diagrams
 
-    with open(input_path, 'r', encoding='utf-8-sig', errors='replace') as source_file:
-        source = source_file.read()
+    with open(input_path, 'rb') as source_file:
+        source = _decode_markdown_bytes(source_file.read())
 
     rendered, diagram_temp_dir = render_fenced_diagrams(
         source,
         os.path.dirname(input_path),
         log,
     )
-    if diagram_temp_dir is not None:
-        with open(input_path, 'w', encoding='utf-8', newline='\n') as output_file:
-            output_file.write(rendered)
+
+    # Always rewrite the app's temporary input copy as clean UTF-8. This fixes
+    # UTF-16 Markdown and removes hidden XML-invalid controls even when the file
+    # contains no Mermaid fences.
+    with open(input_path, 'w', encoding='utf-8', newline='\n') as output_file:
+        output_file.write(rendered)
+
     return diagram_temp_dir
 
 
