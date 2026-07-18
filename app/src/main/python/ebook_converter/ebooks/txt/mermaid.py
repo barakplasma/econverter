@@ -7,8 +7,6 @@ import shutil
 import tempfile
 from xml.etree import ElementTree
 
-from ebook_converter.utils.cleantext import clean_xml_chars
-
 
 _MERMAID_FENCE = re.compile(
     r"^(?P<indent>[ \t]{0,3})(?P<fence>`{3,}|~{3,})[ \t]*"
@@ -16,6 +14,20 @@ _MERMAID_FENCE = re.compile(
     r"(?P<source>.*?)\n^(?P=indent)(?P=fence)[ \t]*$",
     re.IGNORECASE | re.MULTILINE | re.DOTALL,
 )
+
+
+def _clean_xml_chars(text):
+    """Remove only characters forbidden by XML 1.0."""
+    return "".join(
+        char
+        for char in text
+        if (
+            ord(char) in (0x09, 0x0A, 0x0D)
+            or 0x20 <= ord(char) <= 0xD7FF
+            or 0xE000 <= ord(char) <= 0xFFFD
+            or 0x10000 <= ord(char) <= 0x10FFFF
+        )
+    )
 
 
 def render_fenced_diagrams(markdown_text, base_dir, log=None):
@@ -40,7 +52,7 @@ def render_fenced_diagrams(markdown_text, base_dir, log=None):
         # or other XML-invalid control characters. merm preserves those in its
         # SVG text nodes, after which lxml rejects the resource. Strip only
         # characters which XML 1.0 cannot represent.
-        source = clean_xml_chars(match.group("source")).strip()
+        source = _clean_xml_chars(match.group("source")).strip()
         if not source:
             return match.group(0)
 
@@ -51,7 +63,7 @@ def render_fenced_diagrams(markdown_text, base_dir, log=None):
                 svg = render_diagram(source)
                 if isinstance(svg, bytes):
                     svg = svg.decode("utf-8", "replace")
-                svg = clean_xml_chars(svg)
+                svg = _clean_xml_chars(svg)
                 # Validate before exposing the resource to the conversion
                 # pipeline. This catches malformed renderer output here rather
                 # than as an opaque OEB resource parsing failure later.
