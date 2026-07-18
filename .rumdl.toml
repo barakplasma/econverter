@@ -1,0 +1,10 @@
+[global]
+# Runtime conversion is deliberately permissive. CI only blocks on structural
+# fence collisions which can change document meaning or hide content.
+enable = ["MD070"]
+flavor = "gfm"
+respect-gitignore = true
+exclude = [
+    "**/build/**",
+    "**/.gradle/**",
+]
