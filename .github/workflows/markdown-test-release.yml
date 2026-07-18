@@ -11,7 +11,7 @@ permissions:
   statuses: write
 
 concurrency:
-  group: markdown-android-e2e-release
+  group: markdown-android-e2e-release-v2
   cancel-in-progress: true
 
 jobs:
