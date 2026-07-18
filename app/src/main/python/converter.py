@@ -26,6 +26,47 @@ def _parse_extra_args(extra_args):
     return opts
 
 
+def _install_android_compat():
+    """Replace the unavailable html5-parser dependency with lxml on Android."""
+    from lxml import etree
+    from lxml import html as lxml_html
+
+    from ebook_converter.ebooks.conversion.plugins.txt_input import TXTInput
+    from ebook_converter.ebooks.oeb import parse_utils
+
+    def parse_document(data):
+        if isinstance(data, bytes):
+            data = data.decode('utf-8', 'replace')
+        root = lxml_html.document_fromstring(data)
+        # Round-trip through XML serialization so the downstream OEB parser gets
+        # well-formed markup and doesn't need the native html5-parser package.
+        return etree.fromstring(etree.tostring(root, encoding='utf-8', method='xml'))
+
+    def fix_resources(self, html, base_dir):
+        try:
+            root = parse_document(html)
+        except (ValueError, etree.ParserError, etree.XMLSyntaxError):
+            return html
+
+        for img in root.xpath("//*[local-name()='img'][@src]"):
+            src = img.get('src')
+            prefix = src.split(':', 1)[0].lower()
+            if prefix not in ('file', 'http', 'https', 'ftp') and not os.path.isabs(src):
+                path = os.path.join(base_dir, src)
+                if os.access(path, os.R_OK):
+                    with open(path, 'rb') as source:
+                        shifted = self.shift_file(os.path.basename(path), source.read())
+                    img.set('src', os.path.basename(shifted))
+
+        return etree.tostring(root, encoding='unicode', method='xml')
+
+    def html5_parse(data, max_nesting_depth=100):
+        return parse_document(data)
+
+    TXTInput.fix_resources = fix_resources
+    parse_utils.html5_parse = html5_parse
+
+
 def _prepare_markdown(input_path, log):
     """Render fenced Mermaid blocks and rewrite the temporary Android input copy."""
     if os.path.splitext(input_path)[1].lower() not in MARKDOWN_EXTENSIONS:
@@ -55,6 +96,7 @@ def convert(input_path, output_path, *extra_args):
         from ebook_converter.customize.conversion import OptionRecommendation
         from ebook_converter.ebooks.conversion.plumber import Plumber
 
+        _install_android_compat()
         diagram_temp_dir = _prepare_markdown(input_path, logging.default_log)
         plumber = Plumber(input_path, output_path, logging.default_log)
 
