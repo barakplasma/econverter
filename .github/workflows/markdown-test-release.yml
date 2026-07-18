@@ -54,7 +54,7 @@ jobs:
             "repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" \
             -f state=pending \
             -f context='Markdown Android E2E release' \
-            -f description='Android 16 EPUB3 and AZW3 conversion tests started' \
+            -f description='Android 16 UTF-16 and invalid-control conversion tests started' \
             -f target_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
 
       - name: Set up JDK 17
@@ -81,6 +81,7 @@ jobs:
           import shutil
           import tempfile
           from pathlib import Path
+          from xml.etree import ElementTree
 
           from markdown import markdown
 
@@ -94,13 +95,16 @@ jobs:
           assert '<table>' in table
 
           with tempfile.TemporaryDirectory() as base_dir:
-              source = '# Diagram\n\n```mermaid\nflowchart LR\n    A --> B\n```\n'
+              source = '# Diagram\n\n```mermaid\nflowchart LR\n    A["Hidden\x00control"] --> B\n```\n'
               rendered, diagram_dir = render_fenced_diagrams(source, base_dir)
               assert diagram_dir is not None
               assert '![Mermaid diagram]' in rendered
               svg_files = list(Path(diagram_dir).glob('*.svg'))
               assert len(svg_files) == 1
-              assert '<svg' in svg_files[0].read_text(encoding='utf-8')
+              svg = svg_files[0].read_text(encoding='utf-8')
+              assert '<svg' in svg
+              assert '\x00' not in svg
+              ElementTree.fromstring(svg)
               shutil.rmtree(diagram_dir)
           PY
           } 2>&1 | tee markdown-smoke.log
@@ -183,14 +187,14 @@ jobs:
           test -s app/build/outputs/apk/release/app-release.apk
           jarsigner -verify app/build/outputs/apk/release/app-release.apk
           mv app/build/outputs/apk/release/app-release.apk \
-            app/build/outputs/apk/release/econverter-v1.0.6-markdown.3.apk
+            app/build/outputs/apk/release/econverter-v1.0.6-markdown.4.apk
 
       - name: Upload APK artifact
         if: steps.verify.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
-          name: econverter-v1.0.6-markdown.3
-          path: app/build/outputs/apk/release/econverter-v1.0.6-markdown.3.apk
+          name: econverter-v1.0.6-markdown.4
+          path: app/build/outputs/apk/release/econverter-v1.0.6-markdown.4.apk
           if-no-files-found: error
 
       - name: Publish fork-only prerelease
@@ -199,9 +203,9 @@ jobs:
         continue-on-error: true
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.6-markdown.3
+          tag_name: v1.0.6-markdown.4
           target_commitish: ${{ github.sha }}
-          name: eConverter Markdown + Mermaid EPUB3/AZW3 Android-tested build
+          name: eConverter Markdown + Mermaid control-safe Android build
           prerelease: true
           generate_release_notes: true
           body: |
@@ -209,14 +213,16 @@ jobs:
 
             Adds `.md` and `.markdown` input plus offline rendering of fenced Mermaid diagrams to SVG.
 
+            This release normalizes Markdown input to clean UTF-8, detects UTF-16LE/BE Markdown without a BOM, removes XML-invalid controls such as hidden NUL characters, and validates generated Mermaid SVG before ebook conversion.
+
             Before publication, an Android 16 / API 36 x86_64 emulator runs the packaged Chaquopy app through two real conversions:
-            - Markdown + Mermaid to EPUB 3, validating Unicode, XHTML and the embedded SVG resource.
-            - Markdown + Mermaid to AZW3, validating a non-empty `.azw3` file with the Kindle `BOOKMOBI` signature.
+            - UTF-8 Markdown containing a hidden NUL in a Mermaid label to EPUB 3, validating Unicode, XHTML and the sanitized embedded SVG.
+            - BOM-less UTF-16LE Markdown containing Mermaid and a hidden NUL to AZW3, validating normalized UTF-8 input and a non-empty `.azw3` file with the Kindle `BOOKMOBI` signature.
 
             The AZW3 output is the file intended for copying into a Kindle's documents folder over USB MTP. The existing Android file export/copy path is unchanged.
 
             This APK is signed with a test key generated for this workflow run. Uninstall a differently signed eConverter build before installing it.
-          files: app/build/outputs/apk/release/econverter-v1.0.6-markdown.3.apk
+          files: app/build/outputs/apk/release/econverter-v1.0.6-markdown.4.apk
           fail_on_unmatched_files: true
 
       - name: Clean up test key
@@ -235,7 +241,7 @@ jobs:
         run: |
           if [[ "$SMOKE_OUTCOME" == success && "$E2E_OUTCOME" == success && "$BUILD_OUTCOME" == success && "$VERIFY_OUTCOME" == success && "$PUBLISH_OUTCOME" == success ]]; then
             state=success
-            description='Android 16 EPUB3/AZW3 E2E passed and APK published'
+            description='Android 16 UTF-16/control-safe EPUB3/AZW3 E2E passed'
           else
             state=failure
             description="smoke=$SMOKE_OUTCOME e2e=$E2E_OUTCOME build=$BUILD_OUTCOME verify=$VERIFY_OUTCOME publish=$PUBLISH_OUTCOME"
