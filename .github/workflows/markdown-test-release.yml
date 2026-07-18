@@ -1,0 +1,119 @@
+name: Markdown test release
+
+on:
+  push:
+    branches:
+      - 'agent/markdown-mermaid'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Smoke-test Markdown and Mermaid rendering
+        run: |
+          python -m pip install 'markdown>=3.4,<4' 'merm==0.1.5'
+          PYTHONPATH=app/src/main/python python - <<'PY'
+          import shutil
+          import tempfile
+          from pathlib import Path
+
+          from ebook_converter.ebooks.txt.mermaid import render_fenced_diagrams
+          from markdown import markdown
+
+          table = markdown('| A | B |\n|---|---|\n| 1 | 2 |', extensions=['tables'])
+          assert '<table>' in table
+
+          with tempfile.TemporaryDirectory() as base_dir:
+              source = '# Diagram\n\n```mermaid\nflowchart LR\n    A --> B\n```\n'
+              rendered, diagram_dir = render_fenced_diagrams(source, base_dir)
+              assert diagram_dir is not None
+              assert '![Mermaid diagram]' in rendered
+              svg_files = list(Path(diagram_dir).glob('*.svg'))
+              assert len(svg_files) == 1
+              assert '<svg' in svg_files[0].read_text(encoding='utf-8')
+              shutil.rmtree(diagram_dir)
+
+          with tempfile.TemporaryDirectory() as base_dir:
+              invalid = '```mermaid\nnot-a-supported-diagram\n```\n'
+              rendered, diagram_dir = render_fenced_diagrams(invalid, base_dir)
+              assert diagram_dir is None
+              assert rendered == invalid
+          PY
+
+      - name: Grant execute permission for Gradle
+        run: chmod +x gradlew
+
+      - name: Generate test release signing key
+        run: |
+          keytool -genkeypair -noprompt \
+            -keystore app/markdown-test-release.keystore \
+            -storepass androidtest \
+            -keypass androidtest \
+            -alias econverter-test \
+            -dname 'CN=eConverter Markdown Test,O=barakplasma,C=IL' \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 3650
+
+      - name: Build signed release APK
+        run: ./gradlew assembleRelease
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/app/markdown-test-release.keystore
+          KEYSTORE_PASSWORD: androidtest
+          KEY_ALIAS: econverter-test
+          KEY_PASSWORD: androidtest
+
+      - name: Verify and rename APK
+        run: |
+          test -s app/build/outputs/apk/release/app-release.apk
+          jarsigner -verify app/build/outputs/apk/release/app-release.apk
+          mv app/build/outputs/apk/release/app-release.apk \
+            app/build/outputs/apk/release/econverter-v1.0.6-markdown.1.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: econverter-v1.0.6-markdown.1
+          path: app/build/outputs/apk/release/econverter-v1.0.6-markdown.1.apk
+          if-no-files-found: error
+
+      - name: Publish fork-only prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.6-markdown.1
+          target_commitish: ${{ github.sha }}
+          name: eConverter Markdown + Mermaid test build
+          prerelease: true
+          generate_release_notes: true
+          body: |
+            Fork-only test release. No pull request has been opened upstream.
+
+            Adds `.md` and `.markdown` input plus offline rendering of fenced Mermaid diagrams to SVG.
+
+            This APK is signed with a test key generated for this workflow run. Uninstall an existing upstream-signed eConverter build before installing it.
+          files: app/build/outputs/apk/release/econverter-v1.0.6-markdown.1.apk
+          fail_on_unmatched_files: true
+
+      - name: Clean up test key
+        if: always()
+        run: rm -f app/markdown-test-release.keystore
