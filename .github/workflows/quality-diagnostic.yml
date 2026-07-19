@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: quality-diagnostic-${{ github.ref }}
@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   diagnose:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -22,6 +23,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: claude/pr-review-lxml-fixes-dohoga
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -42,49 +44,31 @@ jobs:
           ruff format . > ruff-format.log 2>&1
           echo "ruff_format_status=$?" >> "$GITHUB_ENV"
           set -e
-          git diff --stat
           git diff > quality.patch
 
       - name: Check Ruff after autofix
         continue-on-error: true
         run: |
-          ruff check --output-format=github . 2>&1 | tee ruff-check.log
+          ruff check --output-format=concise . 2>&1 | tee ruff-check.log
           test "${PIPESTATUS[0]}" -eq 0
 
       - name: Check types with ty
         continue-on-error: true
         run: |
-          ty check --output-format github . 2>&1 | tee ty-check.log
+          ty check --output-format concise . 2>&1 | tee ty-check.log
           test "${PIPESTATUS[0]}" -eq 0
 
       - name: Run host conversion suite on formatted tree
         continue-on-error: true
         run: python -m pytest tests/python 2>&1 | tee pytest.log
 
-      - name: Summarize diagnostics
+      - name: Publish temporary diagnostics to the branch
         if: always()
         run: |
-          echo "Ruff autofix status: ${ruff_fix_status:-unknown}"
-          echo "Ruff format status: ${ruff_format_status:-unknown}"
-          echo '=== Remaining Ruff diagnostics ==='
-          tail -n 200 ruff-check.log 2>/dev/null || true
-          echo '=== ty diagnostics ==='
-          tail -n 300 ty-check.log 2>/dev/null || true
-          echo '=== Test summary ==='
-          tail -n 100 pytest.log 2>/dev/null || true
-          echo '=== Diff stat ==='
-          git diff --stat || true
-
-      - name: Upload quality diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: quality-diagnostic
-          path: |
-            quality.patch
-            ruff-fix.log
-            ruff-format.log
-            ruff-check.log
-            ty-check.log
-            pytest.log
-          if-no-files-found: warn
+          mkdir -p .quality-diagnostic
+          cp quality.patch ruff-fix.log ruff-format.log ruff-check.log ty-check.log pytest.log .quality-diagnostic/ 2>/dev/null || true
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .quality-diagnostic
+          git commit -m 'Publish quality diagnostics [skip ci]'
+          git push origin HEAD:claude/pr-review-lxml-fixes-dohoga
