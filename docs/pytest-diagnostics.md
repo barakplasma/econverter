@@ -1,6 +1,7 @@
 ============================= test session starts ==============================
 platform linux -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0
 rootdir: /home/runner/work/econverter/econverter
+configfile: pyproject.toml
 collected 51 items
 
 tests/python/test_convert_e2e.py ...............                         [ 29%]
@@ -14,4 +15,4 @@ tests/python/test_vendored_fixes.py: 23 warnings
     style.update(normalizer(name, prop.cssValue))
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-======================= 51 passed, 368 warnings in 1.86s =======================
+======================= 51 passed, 368 warnings in 1.80s =======================
