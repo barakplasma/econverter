@@ -32,7 +32,7 @@ jobs:
 
       - name: Apply Ruff fixes and formatting
         run: |
-          ruff check --fix --unsafe-fixes .
+          ruff check --fix --unsafe-fixes . || true
           ruff format .
 
       - name: Verify repository quality
