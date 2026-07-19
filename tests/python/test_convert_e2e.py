@@ -136,6 +136,20 @@ def test_markdown_corpus_never_fails(tmp_path, name, source, expect):
         f'content lost for {name}: {text[:200]!r} (warnings: {result["warnings"]})')
 
 
+def test_relative_image_next_to_markdown_is_embedded(tmp_path):
+    from PIL import Image
+
+    Image.new('RGB', (4, 4), 'red').save(tmp_path / 'cover.png')
+    source = '# Doc\n\n![cover](cover.png)\n\ntext continues\n'
+    _input_path, output_path, result = run_convert(
+        tmp_path, 'doc.md', source.encode('utf-8'), 'doc.epub')
+    entries = epub_entries(output_path)
+    png_names = [n for n in entries if n.lower().endswith('.png')]
+    assert png_names, (
+        f'relative image was not embedded: {sorted(entries)} '
+        f'(warnings: {result["warnings"]})')
+
+
 def test_textile_still_converts(tmp_path):
     source = 'h1. Textile heading\n\nA paragraph with *strong* text.\n'
     _input_path, output_path, _result = run_convert(

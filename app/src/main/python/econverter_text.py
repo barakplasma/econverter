@@ -41,18 +41,15 @@ _MERMAID_FENCE = re.compile(
 )
 
 
+# Everything outside the XML 1.0 character ranges; re.sub runs in C, which
+# matters for large documents on-device.
+_XML_INVALID_RE = re.compile(
+    '[^\\x09\\x0A\\x0D\\x20-\\uD7FF\\uE000-\\uFFFD\\U00010000-\\U0010FFFF]')
+
+
 def clean_xml_chars(text):
     """Remove only characters forbidden by XML 1.0."""
-    return "".join(
-        char
-        for char in text
-        if (
-            ord(char) in (0x09, 0x0A, 0x0D)
-            or 0x20 <= ord(char) <= 0xD7FF
-            or 0xE000 <= ord(char) <= 0xFFFD
-            or 0x10000 <= ord(char) <= 0x10FFFF
-        )
-    )
+    return _XML_INVALID_RE.sub('', text)
 
 
 def _bomless_utf16_encoding(raw):
@@ -171,7 +168,9 @@ def render_fenced_diagrams(markdown_text, output_dir, log=None):
                 # Validate before exposing the resource to the conversion
                 # pipeline; a malformed renderer output fails here instead of
                 # as an opaque OEB resource parsing error later.
-                ElementTree.fromstring(svg)
+                # Parse as bytes: parsers reject str input that carries an
+                # XML declaration with an encoding.
+                ElementTree.fromstring(svg.encode('utf-8'))
             except Exception as exc:
                 if log is not None:
                     log.warning("Could not render Mermaid diagram: %s" % exc)
@@ -211,6 +210,51 @@ def build_html_document(title, body):
         '<html><head><meta charset="utf-8"/>'
         '<title>{}</title></head><body>\n{}\n</body></html>\n'
     ).format(html.escape(title), body)
+
+
+def localize_relative_resources(document, source_dir, output_dir):
+    """Copy relatively-referenced images beside the generated HTML document.
+
+    The document handed to the conversion pipeline lives in a temporary
+    directory, so image links relative to the source Markdown file would
+    otherwise resolve against the wrong directory and silently drop the
+    image from the book.
+    """
+    import shutil
+    from urllib.parse import quote, unquote, urlparse
+
+    from lxml import etree
+    from lxml import html as lxml_html
+
+    root = lxml_html.document_fromstring(document)
+    changed = False
+    copied = {}
+    for img in root.iter('img'):
+        src = (img.get('src') or '').strip()
+        if not src or os.path.isabs(src) or urlparse(src).scheme:
+            continue
+        relative = unquote(src)
+        if os.path.exists(os.path.join(output_dir, relative)):
+            continue  # already local, e.g. a rendered Mermaid SVG
+        candidate = os.path.normpath(os.path.join(source_dir, relative))
+        if not os.path.isfile(candidate):
+            continue
+        local_name = copied.get(candidate)
+        if local_name is None:
+            stem, extension = os.path.splitext(os.path.basename(candidate))
+            local_name = stem + extension
+            counter = 0
+            while os.path.exists(os.path.join(output_dir, local_name)):
+                counter += 1
+                local_name = '{}-{}{}'.format(stem, counter, extension)
+            shutil.copyfile(candidate, os.path.join(output_dir, local_name))
+            copied[candidate] = local_name
+        img.set('src', quote(local_name))
+        changed = True
+
+    if not changed:
+        return document
+    return etree.tostring(root, encoding='unicode', method='xml')
 
 
 def validate_html_document(document):
@@ -267,10 +311,23 @@ def prepare_text_input(input_path, log=None, force_txt_plugin=False):
                 'converted as plain text instead.' % (type(exc).__name__, exc))
             body = None
 
+    markdown_rendered = body is not None
     if body is None:
         body = plain_text_body(text)
 
     document = build_html_document(title, body)
+    if markdown_rendered:
+        try:
+            document = localize_relative_resources(
+                document,
+                os.path.dirname(os.path.abspath(input_path)),
+                work_dir,
+            )
+        except Exception as exc:
+            warnings.append(
+                'Could not localize relative image references '
+                '(%s: %s); they may be missing from the output.'
+                % (type(exc).__name__, exc))
     try:
         validate_html_document(document)
     except Exception as exc:

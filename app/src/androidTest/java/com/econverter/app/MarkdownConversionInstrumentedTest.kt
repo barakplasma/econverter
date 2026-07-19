@@ -150,10 +150,11 @@ class MarkdownConversionInstrumentedTest {
                 header.copyOfRange(60, 68).toString(Charsets.US_ASCII),
             )
 
-            val rewrittenMarkdown = input.readText(Charsets.UTF_8)
-            assertTrue("Mermaid preprocessing did not run before AZW3 conversion", rewrittenMarkdown.contains("![Mermaid diagram]"))
-            assertTrue("Markdown was not normalized to readable UTF-8", rewrittenMarkdown.contains("שלום"))
-            assertTrue("Normalized Markdown still contains a NUL", !rewrittenMarkdown.contains(0.toChar()))
+            // The input file must never be modified by conversion.
+            assertTrue(
+                "Input Markdown was rewritten in place",
+                input.readBytes().contentEquals(markdownFixture().toByteArray(Charsets.UTF_16LE)),
+            )
         } finally {
             workDir.deleteRecursively()
         }
@@ -184,10 +185,11 @@ class MarkdownConversionInstrumentedTest {
             assertTrue("TXT conversion did not create an EPUB", output.isFile)
             assertTrue("TXT EPUB is unexpectedly empty", output.length() > 1024)
 
-            val normalizedText = input.readText(Charsets.UTF_8)
-            assertTrue("TXT was not normalized to UTF-8", normalizedText.contains("Plain text sanitizer"))
-            assertTrue("TXT Unicode content was lost", normalizedText.contains("שלום"))
-            assertTrue("Normalized TXT still contains an XML-invalid NUL", !normalizedText.contains(0.toChar()))
+            // The input file must never be modified by conversion.
+            assertTrue(
+                "Input TXT was rewritten in place",
+                input.readBytes().contentEquals(source.toByteArray(Charsets.UTF_16LE)),
+            )
 
             ZipFile(output).use { epub ->
                 val names = mutableListOf<String>()

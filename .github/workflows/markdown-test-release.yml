@@ -77,45 +77,15 @@ jobs:
           python -m pip install 'rumdl==0.2.34'
           rumdl check . 2>&1 | tee rumdl.log
 
-      - name: Smoke-test Markdown and Mermaid rendering
+      - name: Run host conversion test suite
         id: smoke
         if: steps.rumdl.outcome == 'success'
         continue-on-error: true
         run: |
           set -o pipefail
           {
-            python -m pip install 'markdown>=3.4,<4' 'merm==0.1.5'
-            python - <<'PY'
-          import importlib.util
-          import shutil
-          import tempfile
-          from pathlib import Path
-          from xml.etree import ElementTree
-
-          from markdown import markdown
-
-          module_path = Path('app/src/main/python/ebook_converter/ebooks/txt/mermaid.py')
-          spec = importlib.util.spec_from_file_location('econverter_mermaid', module_path)
-          mermaid = importlib.util.module_from_spec(spec)
-          spec.loader.exec_module(mermaid)
-          render_fenced_diagrams = mermaid.render_fenced_diagrams
-
-          table = markdown('| A | B |\n|---|---|\n| 1 | 2 |', extensions=['tables'])
-          assert '<table>' in table
-
-          with tempfile.TemporaryDirectory() as base_dir:
-              source = '# Diagram\n\n```mermaid\nflowchart LR\n    A["Hidden\x00control"] --> B\n```\n'
-              rendered, diagram_dir = render_fenced_diagrams(source, base_dir)
-              assert diagram_dir is not None
-              assert '![Mermaid diagram]' in rendered
-              svg_files = list(Path(diagram_dir).glob('*.svg'))
-              assert len(svg_files) == 1
-              svg = svg_files[0].read_text(encoding='utf-8')
-              assert '<svg' in svg
-              assert '\x00' not in svg
-              ElementTree.fromstring(svg)
-              shutil.rmtree(diagram_dir)
-          PY
+            python -m pip install -r tests/python/requirements.txt
+            python -m pytest tests/python
           } 2>&1 | tee markdown-smoke.log
 
       - name: Enable KVM
