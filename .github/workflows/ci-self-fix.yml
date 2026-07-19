@@ -1,0 +1,79 @@
+name: Apply CI paragraph split fix
+
+on:
+  push:
+    branches:
+      - claude/pr-review-lxml-fixes-dohoga
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: ci-self-fix-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: claude/pr-review-lxml-fixes-dohoga
+          fetch-depth: 0
+
+      - name: Correct double-escaped whitespace literals
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/src/main/python/econverter_text.py')
+          text = path.read_text(encoding='utf-8')
+          slash = chr(92)
+          replacements = (
+              (
+                  "lstrip(' " + slash * 2 + "t" + slash * 2 + "n')",
+                  "lstrip(' " + slash + "t" + slash + "n')",
+              ),
+              (
+                  "out.append('" + slash * 2 + "n" + slash * 2 + "n')",
+                  "out.append('" + slash + "n" + slash + "n')",
+              ),
+          )
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'Expected exactly one occurrence of {old!r}, found {count}')
+              text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: tests/python/requirements.txt
+
+      - name: Install test dependencies
+        run: python -m pip install -r tests/python/requirements.txt
+
+      - name: Run host conversion suite
+        run: python -m pytest tests/python
+
+      - name: Commit fix and remove one-shot workflow
+        run: |
+          rm .github/workflows/ci-self-fix.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/src/main/python/econverter_text.py .github/workflows/ci-self-fix.yml
+          git commit -m 'Fix paragraph splitting escape sequences'
+          git push origin HEAD:claude/pr-review-lxml-fixes-dohoga
+
+      - name: Trigger CI for fixed commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run ci.yml --ref claude/pr-review-lxml-fixes-dohoga
