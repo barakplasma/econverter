@@ -35,12 +35,17 @@ jobs:
           ruff check --fix --unsafe-fixes . || true
           ruff format .
 
-      - name: Verify repository quality
-        run: |
-          ruff check .
-          ruff format --check .
-          ty check --output-format concise .
-          python -m pytest tests/python
+      - name: Verify Ruff lint
+        run: ruff check .
+
+      - name: Verify Ruff formatting
+        run: ruff format --check .
+
+      - name: Verify types with ty
+        run: ty check --output-format concise .
+
+      - name: Run host conversion tests
+        run: python -m pytest tests/python
 
       - name: Commit fixes
         run: |
