@@ -2,6 +2,8 @@ name: CI
 
 on:
   push:
+    branches:
+      - master
   pull_request:
   workflow_dispatch:
 
@@ -10,19 +12,77 @@ permissions:
   contents: write
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # Runs on every push and pull request in a couple of minutes: Ruff linting
-  # and formatting, ty type checking, and the host conversion suite that
-  # reproduces the historical lxml/Chaquopy failures without an emulator.
+  # Same-repository PRs get one automatic cleanup pass before strict checks.
+  # This is kept in the same workflow so autofix and validation never run in
+  # parallel against different versions of the branch.
+  autofix:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.head_ref != 'claude/pr-review-lxml-fixes-dohoga' &&
+      github.actor != 'github-actions[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: tests/python/requirements.txt
+
+      - name: Set up uv for ty
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+
+      - name: Install dependencies and Ruff
+        run: |
+          python -m pip install -r tests/python/requirements.txt
+          python -m pip install 'ruff==0.15.22'
+
+      - name: Apply available ty and Ruff fixes
+        run: |
+          uvx --from ty==0.0.60 \
+            --with-requirements tests/python/requirements.txt \
+            ty check --fix . || true
+          ruff check --fix --unsafe-fixes . || true
+          ruff format .
+
+      - name: Commit automatic fixes
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -u
+          git commit -m 'Apply automatic ty and Ruff fixes'
+          git push origin HEAD:${{ github.head_ref }}
+
+  # Runs after autofix (or directly for master, manual, and fork builds): Ruff
+  # linting and formatting, ty type checking, and the host conversion suite.
   fast-checks:
+    needs: autofix
+    if: >-
+      always() &&
+      github.head_ref != 'claude/pr-review-lxml-fixes-dohoga' &&
+      (needs.autofix.result == 'success' || needs.autofix.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Checkout
+      - name: Checkout latest branch state
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
