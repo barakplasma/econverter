@@ -128,9 +128,9 @@ def split_overlong_paragraphs(text, limit=_PARAGRAPH_LIMIT):
             if cut < limit // 2:
                 cut = limit
             out.append(remaining[:cut])
-            remaining = remaining[cut:].lstrip(' \\t\\n')
+            remaining = remaining[cut:].lstrip(' \t\n')
             if remaining:
-                out.append('\\n\\n')
+                out.append('\n\n')
         out.append(remaining)
     return ''.join(out)
 
