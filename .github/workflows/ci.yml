@@ -14,10 +14,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Runs on every push and pull request in a couple of minutes: structural
-  # Markdown linting plus the host conversion suite that reproduces the
-  # historical lxml/Chaquopy failures without an emulator. This replaces the
-  # old inline "smoke" heredoc (which loaded a since-removed module path).
+  # Runs on every push and pull request in a couple of minutes: Ruff linting
+  # and formatting, ty type checking, and the host conversion suite that
+  # reproduces the historical lxml/Chaquopy failures without an emulator.
   fast-checks:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -32,12 +31,31 @@ jobs:
           cache: pip
           cache-dependency-path: tests/python/requirements.txt
 
-      - uses: astral-sh/ruff-action@v4.0.0
+      - name: Lint Python with Ruff
+        uses: astral-sh/ruff-action@v4.0.0
         with:
+          version: "0.15.22"
+          args: "check --output-format=github"
+          src: "."
+
+      - name: Check Python formatting with Ruff
+        uses: astral-sh/ruff-action@v4.0.0
+        with:
+          version: "0.15.22"
           args: "format --check --diff"
+          src: "."
 
       - name: Install host conversion dependencies
         run: python -m pip install -r tests/python/requirements.txt
+
+      - name: Set up uv for ty
+        uses: astral-sh/setup-uv@v8
+
+      - name: Type-check Python with ty
+        run: >-
+          uvx --from ty==0.0.60
+          --with-requirements tests/python/requirements.txt
+          ty check --output-format github .
 
       - name: Run host conversion suite
         run: python -m pytest tests/python
@@ -229,7 +247,7 @@ jobs:
 
             This release applies the same text-ingress protection to `.txt`, `.text`, `.md`, `.markdown`, and `.textile`: encoding detection, BOM-less UTF-16LE/BE detection, normalization to UTF-8, and removal of XML-invalid controls such as hidden NUL characters. Generated Mermaid SVG is also sanitized and validated before ebook conversion.
 
-            Maintained Markdown in the repository is checked with pinned `rumdl` 0.2.34 using its GFM parser and the structural MD070 nested-fence-collision rule. The host conversion suite (`pytest tests/python`) reproduces the historical lxml failures on every push and pull request. Neither is bundled into the Android APK; they are CI defenses, not a replacement for runtime sanitization.
+            Every Python file in the repository is linted and formatted with pinned Ruff 0.15.22, then type-checked with pinned ty 0.0.60. The host conversion suite (`pytest tests/python`) reproduces the historical lxml failures on every push and pull request. These tools are CI defenses and are not bundled into the Android APK.
 
             Before publication, an Android 16 / API 36 x86_64 emulator runs the packaged Chaquopy app through real conversions of Markdown and TXT to EPUB 3 and AZW3, validating Unicode, XHTML, and the sanitized embedded SVG.
 
