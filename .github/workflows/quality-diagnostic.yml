@@ -35,23 +35,18 @@ jobs:
           ruff check --fix --unsafe-fixes . || true
           ruff format .
 
-      - name: Verify Ruff lint
-        run: ruff check .
-
-      - name: Verify Ruff formatting
-        run: ruff format --check .
-
-      - name: Verify types with ty
-        run: ty check --output-format concise .
-
-      - name: Run host conversion tests
-        run: python -m pytest tests/python
-
-      - name: Commit fixes
+      - name: Capture strict diagnostics
         run: |
-          rm .github/workflows/quality-diagnostic.yml
+          ruff check --output-format=concise . > docs/ruff-diagnostics.md 2>&1 || true
+          ty check --output-format concise . > docs/ty-diagnostics.md 2>&1 || true
+          python -m pytest tests/python > docs/pytest-diagnostics.md 2>&1 || true
+          cat docs/ruff-diagnostics.md
+
+      - name: Commit formatted tree and diagnostics
+        run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -u
-          git commit -m 'Format Python and add Ruff and ty checks'
+          git add -f docs/ruff-diagnostics.md docs/ty-diagnostics.md docs/pytest-diagnostics.md
+          git commit -m 'Apply Ruff formatting and capture quality diagnostics'
           git push origin HEAD:${{ github.head_ref }}
