@@ -1,17 +1,16 @@
 from ebook_converter.customize.conversion import OutputFormatPlugin
 
 
-__license__ = 'GPL v3'
-__copyright__ = '2009, Kovid Goyal <kovid@kovidgoyal.net>'
-__docformat__ = 'restructuredtext en'
+__license__ = "GPL v3"
+__copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
+__docformat__ = "restructuredtext en"
 
 
 class LITOutput(OutputFormatPlugin):
-
-    name = 'LIT Output'
-    author = 'Marshall T. Vandegrift'
-    file_type = 'lit'
-    commit_name = 'lit_output'
+    name = "LIT Output"
+    author = "Marshall T. Vandegrift"
+    file_type = "lit"
+    commit_name = "lit_output"
 
     def convert(self, oeb, output_path, input_plugin, opts, log):
         self.log, self.opts, self.oeb = log, opts, oeb
@@ -20,8 +19,10 @@ class LITOutput(OutputFormatPlugin):
         from ebook_converter.ebooks.oeb.transforms.htmltoc import HTMLTOCAdder
         from ebook_converter.ebooks.lit.writer import LitWriter
         from ebook_converter.ebooks.oeb.transforms.split import Split
-        split = Split(split_on_page_breaks=True, max_flow_size=0,
-                remove_css_pagebreaks=False)
+
+        split = Split(
+            split_on_page_breaks=True, max_flow_size=0, remove_css_pagebreaks=False
+        )
         split(self.oeb, self.opts)
 
         tocadder = HTMLTOCAdder()

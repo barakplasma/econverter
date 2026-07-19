@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
-__license__   = 'GPL v3'
-__copyright__ = '2012, Kovid Goyal <kovid@kovidgoyal.net>'
-__docformat__ = 'restructuredtext en'
+__license__ = "GPL v3"
+__copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
+__docformat__ = "restructuredtext en"
 
 from collections import namedtuple
 from io import BytesIO
@@ -11,28 +11,39 @@ from struct import pack
 from ebook_converter.ebooks.mobi.utils import CNCX, align_block, encint
 from ebook_converter.ebooks.mobi.writer8.header import Header
 
-TagMeta_ = namedtuple('TagMeta', 'name number values_per_entry bitmask end_flag')
+TagMeta_ = namedtuple("TagMeta", "name number values_per_entry bitmask end_flag")
 
 
 def TagMeta(x):
     return TagMeta_(*x)
 
 
-EndTagTable = TagMeta(('eof', 0, 0, 0, 1))
+EndTagTable = TagMeta(("eof", 0, 0, 0, 1))
 
 # map of mask to number of shifts needed, works with 1 bit and two-bit wide masks
 # could also be extended to 4 bit wide ones as well
-mask_to_bit_shifts = {1:0, 2:1, 3:0, 4:2, 8:3, 12:2, 16:4, 32:5, 48:4, 64:6,
-        128:7, 192: 6}
+mask_to_bit_shifts = {
+    1: 0,
+    2: 1,
+    3: 0,
+    4: 2,
+    8: 3,
+    12: 2,
+    16: 4,
+    32: 5,
+    48: 4,
+    64: 6,
+    128: 7,
+    192: 6,
+}
 
 
 class IndexHeader(Header):  # {{{
-
-    HEADER_NAME = b'INDX'
+    HEADER_NAME = b"INDX"
     ALIGN_BLOCK = True
     HEADER_LENGTH = 192
 
-    DEFINITION = f'''
+    DEFINITION = f"""
     # 4 - 8: Header Length
     header_length = {192}
 
@@ -86,14 +97,15 @@ class IndexHeader(Header):  # {{{
 
     # IDXT
     idxt = DYN
-    '''
+    """
 
-    POSITIONS = {'idxt_offset':'idxt'}
+    POSITIONS = {"idxt_offset": "idxt"}
+
+
 # }}}
 
 
 class Index:  # {{{
-
     control_byte_count = 1
     cncx = CNCX()
     tag_types = (EndTagTable,)
@@ -102,12 +114,12 @@ class Index:  # {{{
 
     @classmethod
     def generate_tagx(cls):
-        header = b'TAGX'
+        header = b"TAGX"
         byts = bytearray()
         for tag_meta in cls.tag_types:
             byts.extend(tag_meta[1:])
         # table length, control byte count
-        header += pack(b'>II', 12+len(byts), cls.control_byte_count)
+        header += pack(b">II", 12 + len(byts), cls.control_byte_count)
         return header + bytes(byts)
 
     @classmethod
@@ -116,7 +128,7 @@ class Index:  # {{{
         for lead_text, tags in entries:
             cbs = []
             ans = 0
-            for (name, number, vpe, mask, endi) in cls.tag_types:
+            for name, number, vpe, mask, endi in cls.tag_types:
                 if endi == 1:
                     cbs.append(ans)
                     ans = 0
@@ -129,23 +141,31 @@ class Index:  # {{{
                 shifts = mask_to_bit_shifts[mask]
                 ans |= mask & (nentries << shifts)
             if len(cbs) != cls.control_byte_count:
-                raise ValueError(f'The entry {[lead_text, tags]!r} is invalid')
+                raise ValueError(f"The entry {[lead_text, tags]!r} is invalid")
             control_bytes.append(cbs)
         return control_bytes
 
     def __call__(self):
-        self.control_bytes = self.calculate_control_bytes_for_each_entry(
-                self.entries)
+        self.control_bytes = self.calculate_control_bytes_for_each_entry(self.entries)
 
-        index_blocks, idxt_blocks, record_counts, last_indices = [BytesIO()], [BytesIO()], [0], [b'']
+        index_blocks, idxt_blocks, record_counts, last_indices = (
+            [BytesIO()],
+            [BytesIO()],
+            [0],
+            [b""],
+        )
         buf = BytesIO()
 
-        RECORD_LIMIT = 0x10000 - self.HEADER_LENGTH - 1048  # kindlegen uses 1048 (there has to be some margin because of block alignment)
+        RECORD_LIMIT = (
+            0x10000 - self.HEADER_LENGTH - 1048
+        )  # kindlegen uses 1048 (there has to be some margin because of block alignment)
 
         for i, (index_num, tags) in enumerate(self.entries):
             control_bytes = self.control_bytes[i]
             buf.seek(0), buf.truncate(0)
-            index_num = (index_num.encode('utf-8') if isinstance(index_num, str) else index_num)
+            index_num = (
+                index_num.encode("utf-8") if isinstance(index_num, str) else index_num
+            )
             raw = bytearray(index_num)
             raw.insert(0, len(index_num))
             buf.write(bytes(raw))
@@ -163,7 +183,7 @@ class Index:  # {{{
                         try:
                             buf.write(encint(val))
                         except ValueError:
-                            raise ValueError(f'Invalid values for {tag!r}: {values!r}')
+                            raise ValueError(f"Invalid values for {tag!r}: {values!r}")
             raw = buf.getvalue()
             offset = index_blocks[-1].tell()
             idxt_pos = idxt_blocks[-1].tell()
@@ -172,38 +192,44 @@ class Index:  # {{{
                 idxt_blocks.append(BytesIO())
                 record_counts.append(0)
                 offset = idxt_pos = 0
-                last_indices.append(b'')
+                last_indices.append(b"")
             record_counts[-1] += 1
-            idxt_blocks[-1].write(pack(b'>H', self.HEADER_LENGTH+offset))
+            idxt_blocks[-1].write(pack(b">H", self.HEADER_LENGTH + offset))
             index_blocks[-1].write(raw)
             last_indices[-1] = index_num
 
         index_records = []
-        for index_block, idxt_block, record_count in zip(index_blocks, idxt_blocks, record_counts):
+        for index_block, idxt_block, record_count in zip(
+            index_blocks, idxt_blocks, record_counts
+        ):
             index_block = align_block(index_block.getvalue())
-            idxt_block = align_block(b'IDXT' + idxt_block.getvalue())
+            idxt_block = align_block(b"IDXT" + idxt_block.getvalue())
             # Create header for this index record
-            header = b'INDX'
+            header = b"INDX"
             buf.seek(0), buf.truncate(0)
-            buf.write(pack(b'>I', self.HEADER_LENGTH))
-            buf.write(b'\0'*4)  # Unknown
-            buf.write(pack(b'>I', 1))  # Header type (0 for Index header record and 1 for Index records)
-            buf.write(b'\0'*4)  # Unknown
+            buf.write(pack(b">I", self.HEADER_LENGTH))
+            buf.write(b"\0" * 4)  # Unknown
+            buf.write(
+                pack(b">I", 1)
+            )  # Header type (0 for Index header record and 1 for Index records)
+            buf.write(b"\0" * 4)  # Unknown
 
             # IDXT block offset
-            buf.write(pack(b'>I', self.HEADER_LENGTH + len(index_block)))
+            buf.write(pack(b">I", self.HEADER_LENGTH + len(index_block)))
 
             # Number of index entries in this record
-            buf.write(pack(b'>I', record_count))
+            buf.write(pack(b">I", record_count))
 
-            buf.write(b'\xff'*8)  # Unknown
+            buf.write(b"\xff" * 8)  # Unknown
 
-            buf.write(b'\0'*156)  # Unknown
+            buf.write(b"\0" * 156)  # Unknown
 
             header += buf.getvalue()
             index_records.append(header + index_block + idxt_block)
             if len(index_records[-1]) > 0x10000:
-                raise ValueError('Failed to rollover index blocks for very large index.')
+                raise ValueError(
+                    "Failed to rollover index blocks for very large index."
+                )
 
         # Create the Index Header record
         tagx = self.generate_tagx()
@@ -211,162 +237,193 @@ class Index:  # {{{
         # Geometry of the index records is written as index entries pointed to
         # by the IDXT records
         buf.seek(0), buf.truncate()
-        idxt = [b'IDXT']
+        idxt = [b"IDXT"]
         pos = IndexHeader.HEADER_LENGTH + len(tagx)
         for last_idx, num in zip(last_indices, record_counts):
             start = buf.tell()
-            idxt.append(pack(b'>H', pos))
+            idxt.append(pack(b">H", pos))
             buf.write(bytes(bytearray([len(last_idx)])) + last_idx)
-            buf.write(pack(b'>H', num))
+            buf.write(pack(b">H", num))
             pos += buf.tell() - start
 
         header = {
-                'num_of_entries': sum(r for r in record_counts),
-                'num_of_records': len(index_records),
-                'num_of_cncx': len(self.cncx),
-                'tagx':align_block(tagx),
-                'geometry':align_block(buf.getvalue()),
-                'idxt':align_block(b''.join(idxt)),
+            "num_of_entries": sum(r for r in record_counts),
+            "num_of_records": len(index_records),
+            "num_of_cncx": len(self.cncx),
+            "tagx": align_block(tagx),
+            "geometry": align_block(buf.getvalue()),
+            "idxt": align_block(b"".join(idxt)),
         }
         header = IndexHeader()(**header)
         self.records = [header] + index_records
         self.records.extend(self.cncx.records)
         return self.records
+
+
 # }}}
 
 
 class SkelIndex(Index):
-
-    tag_types = tuple(map(TagMeta, (
-        ('chunk_count', 1, 1, 3, 0),
-        ('geometry',    6, 2, 12, 0),
-        EndTagTable
-    )))
+    tag_types = tuple(
+        map(
+            TagMeta,
+            (("chunk_count", 1, 1, 3, 0), ("geometry", 6, 2, 12, 0), EndTagTable),
+        )
+    )
 
     def __init__(self, skel_table):
         self.entries = [
-                (s.name, {
+            (
+                s.name,
+                {
                     # Don't ask me why these entries have to be repeated twice
-                    'chunk_count':(s.chunk_count, s.chunk_count),
-                    'geometry':(s.start_pos, s.length, s.start_pos, s.length),
-                    }) for s in skel_table
+                    "chunk_count": (s.chunk_count, s.chunk_count),
+                    "geometry": (s.start_pos, s.length, s.start_pos, s.length),
+                },
+            )
+            for s in skel_table
         ]
 
 
 class ChunkIndex(Index):
-
-    tag_types = tuple(map(TagMeta, (
-        ('cncx_offset',     2, 1, 1, 0),
-        ('file_number',     3, 1, 2, 0),
-        ('sequence_number', 4, 1, 4, 0),
-        ('geometry',        6, 2, 8, 0),
-        EndTagTable
-    )))
+    tag_types = tuple(
+        map(
+            TagMeta,
+            (
+                ("cncx_offset", 2, 1, 1, 0),
+                ("file_number", 3, 1, 2, 0),
+                ("sequence_number", 4, 1, 4, 0),
+                ("geometry", 6, 2, 8, 0),
+                EndTagTable,
+            ),
+        )
+    )
 
     def __init__(self, chunk_table):
         self.cncx = CNCX(c.selector for c in chunk_table)
 
         self.entries = [
-                (f'{c.insert_pos:010}', {
-
-                    'cncx_offset':self.cncx[c.selector],
-                    'file_number':c.file_number,
-                    'sequence_number':c.sequence_number,
-                    'geometry':(c.start_pos, c.length),
-                    }) for c in chunk_table
+            (
+                f"{c.insert_pos:010}",
+                {
+                    "cncx_offset": self.cncx[c.selector],
+                    "file_number": c.file_number,
+                    "sequence_number": c.sequence_number,
+                    "geometry": (c.start_pos, c.length),
+                },
+            )
+            for c in chunk_table
         ]
 
 
 class GuideIndex(Index):
-
-    tag_types = tuple(map(TagMeta, (
-        ('title',   1, 1, 1, 0),
-        ('pos_fid', 6, 2, 2, 0),
-        EndTagTable
-    )))
+    tag_types = tuple(
+        map(TagMeta, (("title", 1, 1, 1, 0), ("pos_fid", 6, 2, 2, 0), EndTagTable))
+    )
 
     def __init__(self, guide_table):
         self.cncx = CNCX(c.title for c in guide_table)
 
         self.entries = [
-                (r.type, {
-
-                    'title':self.cncx[r.title],
-                    'pos_fid':r.pos_fid,
-                    }) for r in guide_table
+            (
+                r.type,
+                {
+                    "title": self.cncx[r.title],
+                    "pos_fid": r.pos_fid,
+                },
+            )
+            for r in guide_table
         ]
 
 
 class NCXIndex(Index):
-    ''' The commented out parts have been seen in NCX indexes from MOBI 6
+    """The commented out parts have been seen in NCX indexes from MOBI 6
     periodicals. Since we have no MOBI 8 periodicals to reverse engineer, leave
-    it for now. '''
+    it for now."""
+
     # control_byte_count = 2
-    tag_types = tuple(map(TagMeta, (
-        ('offset',             1, 1, 1, 0),
-        ('length',             2, 1, 2, 0),
-        ('label',              3, 1, 4, 0),
-        ('depth',              4, 1, 8, 0),
-        ('parent',             21, 1, 16, 0),
-        ('first_child',        22, 1, 32, 0),
-        ('last_child',         23, 1, 64, 0),
-        ('pos_fid',            6, 2, 128, 0),
-        EndTagTable,
-        # ('image',              69, 1, 1, 0),
-        # ('description',        70, 1, 2, 0),
-        # ('author',             71, 1, 4, 0),
-        # ('caption',            72, 1, 8, 0),
-        # ('attribution',        73, 1, 16, 0),
-        # EndTagTable
-    )))
+    tag_types = tuple(
+        map(
+            TagMeta,
+            (
+                ("offset", 1, 1, 1, 0),
+                ("length", 2, 1, 2, 0),
+                ("label", 3, 1, 4, 0),
+                ("depth", 4, 1, 8, 0),
+                ("parent", 21, 1, 16, 0),
+                ("first_child", 22, 1, 32, 0),
+                ("last_child", 23, 1, 64, 0),
+                ("pos_fid", 6, 2, 128, 0),
+                EndTagTable,
+                # ('image',              69, 1, 1, 0),
+                # ('description',        70, 1, 2, 0),
+                # ('author',             71, 1, 4, 0),
+                # ('caption',            72, 1, 8, 0),
+                # ('attribution',        73, 1, 16, 0),
+                # EndTagTable
+            ),
+        )
+    )
 
     def __init__(self, toc_table):
         strings = []
         for entry in toc_table:
-            strings.append(entry['label'])
-            aut = entry.get('author', None)
+            strings.append(entry["label"])
+            aut = entry.get("author", None)
             if aut:
                 strings.append(aut)
-            desc = entry.get('description', None)
+            desc = entry.get("description", None)
             if desc:
                 strings.append(desc)
-            kind = entry.get('kind', None)
+            kind = entry.get("kind", None)
             if kind:
                 strings.append(kind)
         self.cncx = CNCX(strings)
 
         try:
-            largest = max(x['index'] for x in toc_table)
+            largest = max(x["index"] for x in toc_table)
         except ValueError:
             largest = 0
-        fmt = '%0{}X'.format(max(2, len(f'{largest:X}')))
+        fmt = "%0{}X".format(max(2, len(f"{largest:X}")))
 
         def to_entry(x):
             ans = {}
-            for f in ('offset', 'length', 'depth', 'pos_fid', 'parent',
-                    'first_child', 'last_child'):
+            for f in (
+                "offset",
+                "length",
+                "depth",
+                "pos_fid",
+                "parent",
+                "first_child",
+                "last_child",
+            ):
                 if f in x:
                     ans[f] = x[f]
-            for f in ('label', 'description', 'author', 'kind'):
+            for f in ("label", "description", "author", "kind"):
                 if f in x:
                     ans[f] = self.cncx[x[f]]
-            return (fmt % x['index'], ans)
+            return (fmt % x["index"], ans)
 
         self.entries = list(map(to_entry, toc_table))
 
 
 class NonLinearNCXIndex(NCXIndex):
     control_byte_count = 2
-    tag_types = tuple(map(TagMeta, (
-        ('offset',             1, 1, 1, 0),
-        ('length',             2, 1, 2, 0),
-        ('label',              3, 1, 4, 0),
-        ('depth',              4, 1, 8, 0),
-        ('kind',               5, 1, 16, 0),
-        ('parent',             21, 1, 32, 0),
-        ('first_child',        22, 1, 64, 0),
-        ('last_child',         23, 1, 128, 0),
-        EndTagTable,
-        ('pos_fid',            6, 2, 1, 0),
-        EndTagTable
-    )))
+    tag_types = tuple(
+        map(
+            TagMeta,
+            (
+                ("offset", 1, 1, 1, 0),
+                ("length", 2, 1, 2, 0),
+                ("label", 3, 1, 4, 0),
+                ("depth", 4, 1, 8, 0),
+                ("kind", 5, 1, 16, 0),
+                ("parent", 21, 1, 32, 0),
+                ("first_child", 22, 1, 64, 0),
+                ("last_child", 23, 1, 128, 0),
+                EndTagTable,
+                ("pos_fid", 6, 2, 1, 0),
+                EndTagTable,
+            ),
+        )
+    )

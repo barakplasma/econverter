@@ -11,6 +11,7 @@ This functionality is owned by Kakasi Japanese processing engine.
 
 Copyright (c) 2010 Hiroshi Miura
 """
+
 import re
 
 from ebook_converter.ebooks.unihandecode.unidecoder import Unidecoder
@@ -19,9 +20,9 @@ from ebook_converter.ebooks.unihandecode.jacodepoints import CODEPOINTS as JACOD
 from ebook_converter.ebooks.unihandecode.pykakasi.kakasi import kakasi
 
 
-__license__ = 'GPL 3'
-__copyright__ = '2010, Hiroshi Miura <miurahr@linux.com>'
-__docformat__ = 'restructuredtext en'
+__license__ = "GPL 3"
+__copyright__ = "2010, Hiroshi Miura <miurahr@linux.com>"
+__docformat__ = "restructuredtext en"
 
 
 class Jadecoder(Unidecoder):
@@ -35,7 +36,9 @@ class Jadecoder(Unidecoder):
 
     def decode(self, text):
         try:
-            result=self.kakasi.do(text)
-            return re.sub('[^\x00-\x7f]', lambda x: self.replace_point(x.group()),result)
+            result = self.kakasi.do(text)
+            return re.sub(
+                "[^\x00-\x7f]", lambda x: self.replace_point(x.group()), result
+            )
         except:
-            return re.sub('[^\x00-\x7f]', lambda x: self.replace_point(x.group()),text)
+            return re.sub("[^\x00-\x7f]", lambda x: self.replace_point(x.group()), text)

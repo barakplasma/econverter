@@ -2,18 +2,19 @@
 Provides platform independent temporary files that persist even after
 being closed.
 """
+
 import atexit
 import os
 import tempfile
 
-from ebook_converter.constants_old import __version__, __appname__, \
-        filesystem_encoding
+from ebook_converter.constants_old import __version__, __appname__, filesystem_encoding
 from ebook_converter import polyglot
 
 
 def cleanup(path):
     try:
         import os as oss
+
         if oss.path.exists(path):
             oss.remove(path)
     except Exception:
@@ -26,6 +27,7 @@ _base_dir = None
 def remove_dir(x):
     try:
         import shutil
+
         shutil.rmtree(x, ignore_errors=True)
     except Exception:
         pass
@@ -35,25 +37,29 @@ def determined_remove_dir(x):
     for i in range(10):
         try:
             import shutil
+
             shutil.rmtree(x)
             return
         except Exception:
             import os  # noqa
+
             if os.path.exists(x):
                 # In case some other program has one of the temp files open.
                 import time
+
                 time.sleep(0.1)
             else:
                 return
     try:
         import shutil
+
         shutil.rmtree(x, ignore_errors=True)
     except Exception:
         pass
 
 
 def app_prefix(prefix):
-    return '%s_%s_%s' % (__appname__, __version__, prefix)
+    return "%s_%s_%s" % (__appname__, __version__, prefix)
 
 
 _osx_cache_dir = None
@@ -66,17 +72,17 @@ def osx_cache_dir():
     if _osx_cache_dir is None:
         _osx_cache_dir = False
         import ctypes
+
         libc = ctypes.CDLL(None)
         buf = ctypes.create_string_buffer(512)
         # _CS_DARWIN_USER_CACHE_DIR = 65538
         buflen = libc.confstr(65538, ctypes.byref(buf), len(buf))
         if 0 < buflen < len(buf):
             try:
-                q = buf.value.decode('utf-8').rstrip('\0')
+                q = buf.value.decode("utf-8").rstrip("\0")
             except ValueError:
                 pass
-            if q and os.path.isdir(q) and os.access(q, os.R_OK | os.W_OK |
-                                                    os.X_OK):
+            if q and os.path.isdir(q) and os.access(q, os.R_OK | os.W_OK | os.X_OK):
                 _osx_cache_dir = q
                 return q
 
@@ -88,9 +94,10 @@ def base_dir():
         # delete the temp dirs of running programs is a good idea!
         _base_dir = None
     if _base_dir is None:
-        td = os.environ.get('CALIBRE_WORKER_TEMP_DIR', None)
+        td = os.environ.get("CALIBRE_WORKER_TEMP_DIR", None)
         if td is not None:
             from ebook_converter.utils.serialize import msgpack_loads
+
             try:
                 td = msgpack_loads(polyglot.from_hex_bytes(td))
             except Exception:
@@ -98,8 +105,8 @@ def base_dir():
         if td and os.path.exists(td):
             _base_dir = td
         else:
-            base = os.environ.get('CALIBRE_TEMP_DIR', None)
-            prefix = app_prefix('tmp_')
+            base = os.environ.get("CALIBRE_TEMP_DIR", None)
+            prefix = app_prefix("tmp_")
             _base_dir = tempfile.mkdtemp(prefix=prefix, dir=base)
             atexit.register(remove_dir, _base_dir)
 
@@ -146,9 +153,10 @@ class PersistentTemporaryFile(object):
     being closed on all platforms. It is automatically deleted on normal
     program termination.
     """
+
     _file = None
 
-    def __init__(self, suffix="", prefix="", dir=None, mode='w+b'):
+    def __init__(self, suffix="", prefix="", dir=None, mode="w+b"):
         if prefix is None:
             prefix = ""
         if dir is None:
@@ -161,9 +169,9 @@ class PersistentTemporaryFile(object):
         atexit.register(cleanup, name)
 
     def __getattr__(self, name):
-        if name == 'name':
-            return self.__dict__['_name']
-        return getattr(self.__dict__['_file'], name)
+        if name == "name":
+            return self.__dict__["_name"]
+        return getattr(self.__dict__["_file"], name)
 
     def __enter__(self):
         return self
@@ -178,7 +186,7 @@ class PersistentTemporaryFile(object):
             pass
 
 
-def PersistentTemporaryDirectory(suffix='', prefix='', dir=None):
+def PersistentTemporaryDirectory(suffix="", prefix="", dir=None):
     """
     Return the path to a newly created temporary directory that will
     be automatically deleted on application exit.
@@ -196,7 +204,7 @@ class TemporaryDirectory(object):
     A temporary directory to be used in a with statement.
     """
 
-    def __init__(self, suffix='', prefix='', dir=None, keep=False):
+    def __init__(self, suffix="", prefix="", dir=None, keep=False):
         self.suffix = suffix
         self.prefix = prefix
         if dir is None:
@@ -205,7 +213,7 @@ class TemporaryDirectory(object):
         self.keep = keep
 
     def __enter__(self):
-        if not hasattr(self, 'tdir'):
+        if not hasattr(self, "tdir"):
             self.tdir = _make_dir(self.suffix, self.prefix, self.dir)
         return self.tdir
 
@@ -215,12 +223,11 @@ class TemporaryDirectory(object):
 
 
 class TemporaryFile(object):
-
-    def __init__(self, suffix="", prefix="", dir=None, mode='w+b'):
+    def __init__(self, suffix="", prefix="", dir=None, mode="w+b"):
         if prefix is None:
-            prefix = ''
+            prefix = ""
         if suffix is None:
-            suffix = ''
+            suffix = ""
         if dir is None:
             dir = base_dir()
         self.mode = mode
@@ -241,19 +248,19 @@ class TemporaryFile(object):
 
 
 class SpooledTemporaryFile(tempfile.SpooledTemporaryFile):
-
-    def __init__(self, max_size=0, suffix="", prefix="", dir=None, mode='w+b',
-                 bufsize=-1):
+    def __init__(
+        self, max_size=0, suffix="", prefix="", dir=None, mode="w+b", bufsize=-1
+    ):
         if prefix is None:
-            prefix = ''
+            prefix = ""
         if suffix is None:
-            suffix = ''
+            suffix = ""
         if dir is None:
             dir = base_dir()
         self._name = None
-        tempfile.SpooledTemporaryFile.__init__(self, max_size=max_size,
-                                               suffix=suffix, prefix=prefix,
-                                               dir=dir, mode=mode)
+        tempfile.SpooledTemporaryFile.__init__(
+            self, max_size=max_size, suffix=suffix, prefix=prefix, dir=dir, mode=mode
+        )
 
     @property
     def name(self):

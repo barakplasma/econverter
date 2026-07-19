@@ -12,23 +12,23 @@ from ebook_converter.ebooks.oeb import parse_utils
 
 
 class Buf(io.BytesIO):
-
     def write(self, x):
         if isinstance(x, str):
-            x = x.encode('utf-8')
+            x = x.encode("utf-8")
         io.BytesIO.write(self, x)
 
 
 class Serializer(object):
-    NSRMAP = {'': None,
-              const.XML_NS: 'xml',
-              const.XHTML_NS: '',
-              MBP_NS: 'mbp'}  # TODO(gryf): check why this is different than
-                              # MBP_NS from const.
+    NSRMAP = {
+        "": None,
+        const.XML_NS: "xml",
+        const.XHTML_NS: "",
+        MBP_NS: "mbp",
+    }  # TODO(gryf): check why this is different than
+    # MBP_NS from const.
 
-    def __init__(self, oeb, images, is_periodical,
-                 write_page_breaks_after_item=True):
-        '''
+    def __init__(self, oeb, images, is_periodical, write_page_breaks_after_item=True):
+        """
         Write all the HTML markup in oeb into a single in memory buffer
         containing a single html document with links replaced by offsets into
         the buffer.
@@ -41,7 +41,7 @@ class Serializer(object):
 
         :param write_page_breaks_after_item: If True a MOBIpocket pagebreak tag
         is written after every element of the spine in ``oeb``.
-        '''
+        """
         self.oeb = oeb
         # Map of image hrefs to image index in the MOBI file
         self.images = images
@@ -71,10 +71,10 @@ class Serializer(object):
         self.find_blocks()
 
     def find_blocks(self):
-        '''
+        """
         Mark every item in the spine if it is the start/end of a
         section/article, so that it can be wrapped in divs appropriately.
-        '''
+        """
         for item in self.oeb.spine:
             item.is_section_start = item.is_section_end = False
             item.is_article_start = item.is_article_end = False
@@ -86,7 +86,7 @@ class Serializer(object):
                     return item
 
         for item in self.oeb.toc.iterdescendants():
-            if item.klass == 'section':
+            if item.klass == "section":
                 articles = list(item)
                 if not articles:
                     continue
@@ -100,7 +100,7 @@ class Serializer(object):
         in_sec = in_art = False
         for i, item in enumerate(items):
             try:
-                prev_item = items[i-1]
+                prev_item = items[i - 1]
             except:
                 prev_item = None
             if in_art and item.is_article_start is True:
@@ -117,14 +117,14 @@ class Serializer(object):
         item.is_section_end = item.is_article_end = True
 
     def __call__(self):
-        '''
+        """
         Return the document serialized as a single UTF-8 encoded bytestring.
-        '''
+        """
         buf = self.buf = Buf()
-        buf.write(b'<html>')
+        buf.write(b"<html>")
         self.serialize_head()
         self.serialize_body()
-        buf.write(b'</html>')
+        buf.write(b"</html>")
         self.end_offset = buf.tell()
         self.fixup_links()
         if self.start_offset is None and not self.is_periodical:
@@ -137,33 +137,32 @@ class Serializer(object):
 
     def serialize_head(self):
         buf = self.buf
-        buf.write(b'<head>')
+        buf.write(b"<head>")
         if len(self.oeb.guide) > 0:
             self.serialize_guide()
-        buf.write(b'</head>')
+        buf.write(b"</head>")
 
     def serialize_guide(self):
-        '''
+        """
         The Kindle decides where to open a book based on the presence of
         an item in the guide that looks like
         <reference type="text" title="Start" href="chapter-one.xhtml"/>
 
         Similarly an item with type="toc" controls where the Goto Table of
         Contents operation on the kindle goes.
-        '''
+        """
 
         buf = self.buf
         hrefs = self.oeb.manifest.hrefs
-        buf.write(b'<guide>')
+        buf.write(b"<guide>")
         for ref in self.oeb.guide.values():
             path = urllib.parse.urldefrag(ref.href)[0]
-            if (path not in hrefs or
-                    hrefs[path].media_type not in base.OEB_DOCS):
+            if path not in hrefs or hrefs[path].media_type not in base.OEB_DOCS:
                 continue
 
             buf.write(b'<reference type="')
-            if ref.type.startswith('other.') :
-                self.serialize_text(ref.type.replace('other.',''), quot=True)
+            if ref.type.startswith("other."):
+                self.serialize_text(ref.type.replace("other.", ""), quot=True)
             else:
                 self.serialize_text(ref.type, quot=True)
             buf.write(b'" ')
@@ -175,9 +174,9 @@ class Serializer(object):
                     self._start_href = ref.href
             self.serialize_href(ref.href)
             # Space required or won't work, I kid you not
-            buf.write(b' />')
+            buf.write(b" />")
 
-        buf.write(b'</guide>')
+        buf.write(b"</guide>")
 
     def serialize_href(self, href, _base=None):
         """
@@ -201,17 +200,17 @@ class Serializer(object):
         if item and item.spine_position is None:
             return False
         path = item.href if item else _base.href
-        href = '#'.join((path, frag)) if frag else path
-        buf.write(b'filepos=')
+        href = "#".join((path, frag)) if frag else path
+        buf.write(b"filepos=")
         self.href_offsets[href].append(buf.tell())
-        buf.write(b'0000000000')
+        buf.write(b"0000000000")
         return True
 
     def serialize_body(self):
-        '''
+        """
         Serialize all items in the spine of the document. Non linear items are
         moved to the end.
-        '''
+        """
         buf = self.buf
 
         def serialize_toc_level(tocref, href=None):
@@ -219,7 +218,7 @@ class Serializer(object):
             # if href is provided add a link ref to the toc level output (e.g. feed_0/index.html)
             if href is not None:
                 # resolve the section url in id_offsets
-                buf.write(b'<mbp:pagebreak />')
+                buf.write(b"<mbp:pagebreak />")
                 self.id_offsets[base.urlnormalize(href)] = buf.tell()
 
             if tocref.klass == "periodical":
@@ -227,34 +226,37 @@ class Serializer(object):
             else:
                 t = tocref.title
                 if isinstance(t, str):
-                    t = t.encode('utf-8')
-                buf.write(b'<div></div> <div> <h2 height="1em"><font size="+2"><b>' + t +
-                          b'</b></font></h2> <div height="1em"></div>')
+                    t = t.encode("utf-8")
+                buf.write(
+                    b'<div></div> <div> <h2 height="1em"><font size="+2"><b>'
+                    + t
+                    + b'</b></font></h2> <div height="1em"></div>'
+                )
 
-            buf.write(b'<ul>')
+            buf.write(b"<ul>")
 
             for tocitem in tocref.nodes:
-                buf.write(b'<li><a filepos=')
+                buf.write(b"<li><a filepos=")
                 itemhref = tocitem.href
-                if tocref.klass == 'periodical':
+                if tocref.klass == "periodical":
                     # This is a section node.
                     # For periodical tocs, the section urls are like r'feed_\d+/index.html'
                     # We dont want to point to the start of the first article
                     # so we change the href.
-                    itemhref = re.sub(r'article_\d+/', '', itemhref)
+                    itemhref = re.sub(r"article_\d+/", "", itemhref)
                 self.href_offsets[itemhref].append(buf.tell())
-                buf.write(b'0000000000')
+                buf.write(b"0000000000")
                 buf.write(b' ><font size="+1"><b><u>')
                 t = tocitem.title
                 if isinstance(t, str):
-                    t = t.encode('utf-8')
+                    t = t.encode("utf-8")
                 buf.write(t)
-                buf.write(b'</u></b></font></a></li>')
+                buf.write(b"</u></b></font></a></li>")
 
             buf.write(b'</ul><div height="1em"></div></div><mbp:pagebreak />')
 
         self.anchor_offset = buf.tell()
-        buf.write(b'<body>')
+        buf.write(b"<body>")
         self.body_start_offset = buf.tell()
 
         if self.is_periodical:
@@ -265,12 +267,11 @@ class Serializer(object):
         spine.extend([item for item in self.oeb.spine if not item.linear])
 
         for item in spine:
-
             if self.is_periodical and item.is_section_start:
                 for section_toc in top_toc.nodes:
                     if base.urlnormalize(item.href) == section_toc.href:
                         # create section url of the form r'feed_\d+/index.html'
-                        section_url = re.sub(r'article_\d+/', '', section_toc.href)
+                        section_url = re.sub(r"article_\d+/", "", section_toc.href)
                         serialize_toc_level(section_toc, section_url)
                         section_toc.href = section_url
                         break
@@ -278,74 +279,80 @@ class Serializer(object):
             self.serialize_item(item)
 
         self.body_end_offset = buf.tell()
-        buf.write(b'</body>')
+        buf.write(b"</body>")
 
     def serialize_item(self, item):
-        '''
+        """
         Serialize an individual item from the spine of the input document.
         A reference to this item is stored in self.href_offsets
-        '''
+        """
         buf = self.buf
         if not item.linear:
             self.breaks.append(buf.tell() - 1)
         self.id_offsets[base.urlnormalize(item.href)] = buf.tell()
         if item.is_section_start:
-            buf.write(b'<a ></a> ')
+            buf.write(b"<a ></a> ")
         if item.is_article_start:
-            buf.write(b'<a ></a> <a ></a>')
-        for elem in item.data.find(base.tag('xhtml', 'body')):
+            buf.write(b"<a ></a> <a ></a>")
+        for elem in item.data.find(base.tag("xhtml", "body")):
             self.serialize_elem(elem, item)
         if self.write_page_breaks_after_item:
-            buf.write(b'<mbp:pagebreak/>')
+            buf.write(b"<mbp:pagebreak/>")
         if item.is_article_end:
             # Kindle periodical article end marker
-            buf.write(b'<a ></a> <a ></a>')
+            buf.write(b"<a ></a> <a ></a>")
         if item.is_section_end:
-            buf.write(b' <a ></a>')
+            buf.write(b" <a ></a>")
         self.anchor_offset = None
 
     def serialize_elem(self, elem, item, nsrmap=NSRMAP):
         buf = self.buf
-        if not isinstance(elem.tag, (str, bytes)) \
-            or parse_utils.namespace(elem.tag) not in nsrmap:
+        if (
+            not isinstance(elem.tag, (str, bytes))
+            or parse_utils.namespace(elem.tag) not in nsrmap
+        ):
             return
         tag = base.prefixname(elem.tag, nsrmap)
         # Previous layers take care of @name
-        id_ = elem.attrib.pop('id', None)
+        id_ = elem.attrib.pop("id", None)
         if id_:
-            href = '#'.join((item.href, id_))
+            href = "#".join((item.href, id_))
             offset = self.anchor_offset or buf.tell()
             key = base.urlnormalize(href)
             # Only set this id_offset if it wasn't previously seen
             self.id_offsets[key] = self.id_offsets.get(key, offset)
-        if self.anchor_offset is not None and \
-            tag == 'a' and not elem.attrib and \
-            not len(elem) and not elem.text:
+        if (
+            self.anchor_offset is not None
+            and tag == "a"
+            and not elem.attrib
+            and not len(elem)
+            and not elem.text
+        ):
             return
         self.anchor_offset = buf.tell()
-        buf.write(b'<')
-        buf.write(tag.encode('utf-8'))
+        buf.write(b"<")
+        buf.write(tag.encode("utf-8"))
         if elem.attrib:
             for attr, val in elem.attrib.items():
                 if parse_utils.namespace(attr) not in nsrmap:
                     continue
                 attr = base.prefixname(attr, nsrmap)
-                buf.write(b' ')
-                if attr == 'href':
+                buf.write(b" ")
+                if attr == "href":
                     if self.serialize_href(val, item):
                         continue
-                elif attr == 'src':
+                elif attr == "src":
                     href = base.urlnormalize(item.abshref(val))
                     if href in self.images:
                         index = self.images[href]
                         self.used_images.add(href)
                         buf.write(b'recindex="%05d"' % index)
                         continue
-                buf.write(attr.encode('utf-8'))
+                buf.write(attr.encode("utf-8"))
                 buf.write(b'="')
                 self.serialize_text(val, quot=True)
                 buf.write(b'"')
-        buf.write(b'>')
+        buf.write(b">")
         if elem.text or len(elem) > 0:
             if elem.text:
                 self.anchor_offset = None
@@ -355,32 +362,32 @@ class Serializer(object):
                 if child.tail:
                     self.anchor_offset = None
                     self.serialize_text(child.tail)
-        buf.write(('</%s>' % tag).encode('utf-8'))
+        buf.write(("</%s>" % tag).encode("utf-8"))
 
     def serialize_text(self, text, quot=False):
-        text = text.replace('&', '&amp;')
-        text = text.replace('<', '&lt;')
-        text = text.replace('>', '&gt;')
-        text = text.replace(u'\u00AD', '')  # Soft-hyphen
+        text = text.replace("&", "&amp;")
+        text = text.replace("<", "&lt;")
+        text = text.replace(">", "&gt;")
+        text = text.replace("\u00ad", "")  # Soft-hyphen
         if quot:
-            text = text.replace('"', '&quot;')
+            text = text.replace('"', "&quot;")
         if isinstance(text, str):
-            text = unicodedata.normalize('NFC', text)
-        self.buf.write(text.encode('utf-8'))
+            text = unicodedata.normalize("NFC", text)
+        self.buf.write(text.encode("utf-8"))
 
     def fixup_links(self):
-        '''
+        """
         Fill in the correct values for all filepos="..." links with the offsets
         of the linked to content (as stored in id_offsets).
-        '''
+        """
         buf = self.buf
         id_offsets = self.id_offsets
-        start_href = getattr(self, '_start_href', None)
+        start_href = getattr(self, "_start_href", None)
         for href, hoffs in self.href_offsets.items():
-            is_start = (href and href == start_href)
+            is_start = href and href == start_href
             # Iterate over all filepos items
             if href not in id_offsets:
-                self.logger.warning('Hyperlink target %r not found', href)
+                self.logger.warning("Hyperlink target %r not found", href)
                 # Link to the top of the document, better than just ignoring
                 href, _ = urllib.parse.urldefrag(href)
             if href in self.id_offsets:
@@ -389,4 +396,4 @@ class Serializer(object):
                     self.start_offset = ioff
                 for hoff in hoffs:
                     buf.seek(hoff)
-                    buf.write(('%010d' % ioff).encode('utf-8'))
+                    buf.write(("%010d" % ioff).encode("utf-8"))

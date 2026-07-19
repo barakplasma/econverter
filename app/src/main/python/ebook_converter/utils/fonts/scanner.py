@@ -11,16 +11,17 @@ from ebook_converter.utils import config
 class NoFonts(ValueError):
     pass
 
+
 # Font dirs {{{
 
 
 def default_font_dirs():
     return [
-        '/opt/share/fonts',
-        '/usr/share/fonts',
-        '/usr/local/share/fonts',
-        os.path.expanduser('~/.local/share/fonts'),
-        os.path.expanduser('~/.fonts')
+        "/opt/share/fonts",
+        "/usr/share/fonts",
+        "/usr/local/share/fonts",
+        os.path.expanduser("~/.local/share/fonts"),
+        os.path.expanduser("~/.fonts"),
     ]
 
 
@@ -28,7 +29,7 @@ def fc_list():
     import ctypes
     from ctypes.util import find_library
 
-    lib = find_library('fontconfig')
+    lib = find_library("fontconfig")
     if lib is None:
         return default_font_dirs()
     try:
@@ -38,19 +39,19 @@ def fc_list():
 
     prototype = ctypes.CFUNCTYPE(ctypes.c_void_p, ctypes.c_void_p)
     try:
-        get_font_dirs = prototype(('FcConfigGetFontDirs', lib))
-    except (AttributeError):
+        get_font_dirs = prototype(("FcConfigGetFontDirs", lib))
+    except AttributeError:
         return default_font_dirs()
     prototype = ctypes.CFUNCTYPE(ctypes.c_char_p, ctypes.c_void_p)
     try:
-        next_dir = prototype(('FcStrListNext', lib))
-    except (AttributeError):
+        next_dir = prototype(("FcStrListNext", lib))
+    except AttributeError:
         return default_font_dirs()
 
     prototype = ctypes.CFUNCTYPE(None, ctypes.c_void_p)
     try:
-        end = prototype(('FcStrListDone', lib))
-    except (AttributeError):
+        end = prototype(("FcStrListDone", lib))
+    except AttributeError:
         return default_font_dirs()
 
     str_list = get_font_dirs(ctypes.c_void_p())
@@ -66,7 +67,7 @@ def fc_list():
             try:
                 ans.append(d.decode(filesystem_encoding))
             except ValueError:
-                print(f'Ignoring undecodeable font path: {d}')
+                print(f"Ignoring undecodeable font path: {d}")
                 continue
     end(str_list)
     if len(ans) < 3:
@@ -75,7 +76,7 @@ def fc_list():
     parents, visited = [], set()
     for f in ans:
         path = os.path.normpath(os.path.abspath(os.path.realpath(f)))
-        if path == '/':
+        if path == "/":
             continue
         head, tail = os.path.split(path)
         while head and tail:
@@ -90,29 +91,32 @@ def fc_list():
 
 def font_dirs():
     return fc_list()
+
+
 # }}}
 
 # Build font family maps {{{
 
 
 def font_priority(font):
-    '''
+    """
     Try to ensure that  the "Regular" face is the first font for a given
     family.
-    '''
-    style_normal = font['font-style'] == 'normal'
-    width_normal = font['font-stretch'] == 'normal'
-    weight_normal = font['font-weight'] == 'normal'
-    num_normal = sum(filter(None, (style_normal, width_normal,
-                                   weight_normal)))
-    subfamily_name = (font['wws_subfamily_name'] or
-                      font['preferred_subfamily_name'] or
-                      font['subfamily_name'])
-    if num_normal == 3 and subfamily_name == 'Regular':
+    """
+    style_normal = font["font-style"] == "normal"
+    width_normal = font["font-stretch"] == "normal"
+    weight_normal = font["font-weight"] == "normal"
+    num_normal = sum(filter(None, (style_normal, width_normal, weight_normal)))
+    subfamily_name = (
+        font["wws_subfamily_name"]
+        or font["preferred_subfamily_name"]
+        or font["subfamily_name"]
+    )
+    if num_normal == 3 and subfamily_name == "Regular":
         return 0
     if num_normal == 3:
         return 1
-    if subfamily_name == 'Regular':
+    if subfamily_name == "Regular":
         return 2
     return 3 + (3 - num_normal)
 
@@ -125,12 +129,12 @@ def path_significance(path, folders):
     return -1
 
 
-def build_families(cached_fonts, folders, family_attr='font-family'):
+def build_families(cached_fonts, folders, family_attr="font-family"):
     families = defaultdict(list)
     for font in cached_fonts.values():
         if not font:
             continue
-        lf = (font.get(family_attr) or '').lower()
+        lf = (font.get(family_attr) or "").lower()
         if lf:
             families[lf].append(font)
 
@@ -141,14 +145,18 @@ def build_families(cached_fonts, folders, family_attr='font-family'):
         fmap = {}
         remove = []
         for font in fonts:
-            fingerprint = (font['font-family'].lower(), font['font-weight'],
-                           font['font-stretch'], font['font-style'])
+            fingerprint = (
+                font["font-family"].lower(),
+                font["font-weight"],
+                font["font-stretch"],
+                font["font-style"],
+            )
             if fingerprint in fmap:
-                opath = fmap[fingerprint]['path']
-                npath = font['path']
-                if path_significance(npath,
-                                     folders) >= path_significance(opath,
-                                                                   folders):
+                opath = fmap[fingerprint]["path"]
+                npath = font["path"]
+                if path_significance(npath, folders) >= path_significance(
+                    opath, folders
+                ):
                     remove.append(fmap[fingerprint])
                     fmap[fingerprint] = font
                 else:
@@ -160,21 +168,24 @@ def build_families(cached_fonts, folders, family_attr='font-family'):
         fonts.sort(key=font_priority)
 
     font_family_map = dict.copy(families)
-    font_families = tuple(sorted((font[0]['font-family'] for font in
-                                  font_family_map.values())))
+    font_families = tuple(
+        sorted((font[0]["font-family"] for font in font_family_map.values()))
+    )
     return font_family_map, font_families
+
+
 # }}}
 
 
 class FontScanner(Thread):
-
     CACHE_VERSION = 2
 
-    def __init__(self, folders=[], allowed_extensions={'ttf', 'otf'}):
+    def __init__(self, folders=[], allowed_extensions={"ttf", "otf"}):
         Thread.__init__(self)
         self.folders = folders + font_dirs()
-        self.folders = [os.path.normcase(os.path.abspath(font)) for font in
-                        self.folders]
+        self.folders = [
+            os.path.normcase(os.path.abspath(font)) for font in self.folders
+        ]
         self.font_families = ()
         self.allowed_extensions = allowed_extensions
 
@@ -184,26 +195,26 @@ class FontScanner(Thread):
         return self.font_families
 
     def fonts_for_family(self, family):
-        '''
+        """
         Return a list of the faces belonging to the specified family. The first
         face is the "Regular" face of family. Each face is a dictionary with
         many keys, the most important of which are: path, font-family,
         font-weight, font-style, font-stretch. The font-* properties follow the
         CSS 3 Fonts specification.
-        '''
+        """
         self.join()
         try:
             return self.font_family_map[family.lower()]
         except KeyError:
-            raise NoFonts('No fonts found for the family: %r' % family)
+            raise NoFonts("No fonts found for the family: %r" % family)
 
     def legacy_fonts_for_family(self, family):
-        '''
+        """
         Return a simple set of regular, bold, italic and bold-italic faces for
         the specified family. Returns a dictionary with each element being a
         2-tuple of (path to font, full font name) and the keys being: normal,
         bold, italic, bi.
-        '''
+        """
         ans = {}
         try:
             faces = self.fonts_for_family(family)
@@ -211,29 +222,30 @@ class FontScanner(Thread):
             return ans
         for i, face in enumerate(faces):
             if i == 0:
-                key = 'normal'
-            elif face['font-style'] in {'italic', 'oblique'}:
-                key = 'bi' if face['font-weight'] == 'bold' else 'italic'
-            elif face['font-weight'] == 'bold':
-                key = 'bold'
+                key = "normal"
+            elif face["font-style"] in {"italic", "oblique"}:
+                key = "bi" if face["font-weight"] == "bold" else "italic"
+            elif face["font-weight"] == "bold":
+                key = "bold"
             else:
                 continue
-            ans[key] = (face['path'], face['full_name'])
+            ans[key] = (face["path"], face["full_name"])
         return ans
 
     def get_font_data(self, font_or_path):
         path = font_or_path
         if isinstance(font_or_path, dict):
-            path = font_or_path['path']
-        with open(path, 'rb') as f:
+            path = font_or_path["path"]
+        with open(path, "rb") as f:
             return f.read()
 
-    def find_font_for_text(self, text,
-                           allowed_families={'serif', 'sans-serif'},
-                           preferred_families=('serif', 'sans-serif',
-                                               'monospace', 'cursive',
-                                               'fantasy')):
-        '''
+    def find_font_for_text(
+        self,
+        text,
+        allowed_families={"serif", "sans-serif"},
+        preferred_families=("serif", "sans-serif", "monospace", "cursive", "fantasy"),
+    ):
+        """
         Find a font on the system capable of rendering the given text.
 
         Returns a font family (as given by fonts_for_family()) that has a
@@ -241,12 +253,15 @@ class FontScanner(Thread):
         exists, returns None.
 
         :return: (family name, faces) or None, None
-        '''
-        from ebook_converter.utils.fonts.utils import \
-            supports_text, panose_to_css_generic_family, \
-            get_printable_characters
+        """
+        from ebook_converter.utils.fonts.utils import (
+            supports_text,
+            panose_to_css_generic_family,
+            get_printable_characters,
+        )
+
         if not isinstance(text, str):
-            raise TypeError(u'%r is not unicode' % text)
+            raise TypeError("%r is not unicode" % text)
         text = get_printable_characters(text)
         found = {}
 
@@ -262,9 +277,11 @@ class FontScanner(Thread):
             faces = list(filter(filter_faces, self.fonts_for_family(family)))
             if not faces:
                 continue
-            generic_family = panose_to_css_generic_family(faces[0]['panose'])
-            if (generic_family in allowed_families or
-                    generic_family == preferred_families[0]):
+            generic_family = panose_to_css_generic_family(faces[0]["panose"])
+            if (
+                generic_family in allowed_families
+                or generic_family == preferred_families[0]
+            ):
                 return (family, faces)
             elif generic_family not in found:
                 found[generic_family] = (family, faces)
@@ -273,16 +290,17 @@ class FontScanner(Thread):
             if f in found:
                 return found[f]
         return None, None
+
     # }}}
 
     def reload_cache(self):
-        if not hasattr(self, 'cache'):
-            self.cache = config.JSONConfig('ebook-converter-scanner-cache')
+        if not hasattr(self, "cache"):
+            self.cache = config.JSONConfig("ebook-converter-scanner-cache")
         else:
             self.cache.refresh()
-        if self.cache.get('version', None) != self.CACHE_VERSION:
+        if self.cache.get("version", None) != self.CACHE_VERSION:
             self.cache.clear()
-        self.cached_fonts = self.cache.get('fonts', {})
+        self.cached_fonts = self.cache.get("fonts", {})
 
     def run(self):
         self.do_scan()
@@ -295,25 +313,30 @@ class FontScanner(Thread):
             if not os.path.isdir(folder):
                 continue
             try:
-                files = tuple([os.path.join(root, f)
-                               for root, _, fnames in os.walk(folder)
-                               for f in fnames])
+                files = tuple(
+                    [
+                        os.path.join(root, f)
+                        for root, _, fnames in os.walk(folder)
+                        for f in fnames
+                    ]
+                )
             except EnvironmentError as e:
                 if DEBUG:
-                    print(f'Failed to walk font folder: {folder}, {e}')
+                    print(f"Failed to walk font folder: {folder}, {e}")
                 continue
             for candidate in files:
-                if (candidate.rpartition('.')[-1].lower() not in
-                        self.allowed_extensions or
-                        not os.path.isfile(candidate)):
+                if candidate.rpartition(".")[
+                    -1
+                ].lower() not in self.allowed_extensions or not os.path.isfile(
+                    candidate
+                ):
                     continue
                 candidate = os.path.normcase(os.path.abspath(candidate))
                 try:
                     s = os.stat(candidate)
                 except EnvironmentError:
                     continue
-                fileid = '{0}||{1}:{2}'.format(candidate, s.st_size,
-                                               s.st_mtime)
+                fileid = "{0}||{1}:{2}".format(candidate, s.st_size, s.st_mtime)
                 if fileid in cached_fonts:
                     # Use previously cached metadata, since the file size and
                     # last modified timestamp have not changed.
@@ -323,8 +346,9 @@ class FontScanner(Thread):
                     self.read_font_metadata(candidate, fileid)
                 except Exception as e:
                     if DEBUG:
-                        print(f'Failed to read metadata from font file '
-                              f'{candidate}: {e}')
+                        print(
+                            f"Failed to read metadata from font file {candidate}: {e}"
+                        )
                     continue
 
         if frozenset(cached_fonts) != frozenset(self.cached_fonts):
@@ -334,27 +358,28 @@ class FontScanner(Thread):
         self.build_families()
 
     def build_families(self):
-        (self.font_family_map,
-         self.font_families) = build_families(self.cached_fonts, self.folders)
+        (self.font_family_map, self.font_families) = build_families(
+            self.cached_fonts, self.folders
+        )
 
     def write_cache(self):
         with self.cache:
-            self.cache['version'] = self.CACHE_VERSION
-            self.cache['fonts'] = self.cached_fonts
+            self.cache["version"] = self.CACHE_VERSION
+            self.cache["fonts"] = self.cached_fonts
 
     def force_rescan(self):
         self.cached_fonts = {}
         self.write_cache()
 
     def read_font_metadata(self, path, fileid):
-        with open(path, 'rb') as f:
+        with open(path, "rb") as f:
             try:
                 fm = FontMetadata(f)
             except UnsupportedFont:
                 self.cached_fonts[fileid] = {}
             else:
                 data = fm.to_dict()
-                data['path'] = path
+                data["path"] = path
                 self.cached_fonts[fileid] = data
 
     def dump_fonts(self):
@@ -362,14 +387,19 @@ class FontScanner(Thread):
         for family in self.font_families:
             print(family)
             for font in self.fonts_for_family(family):
-                print('\t%s: %s' % (font['full_name'], font['path']))
-                print(end='\t')
-                for key in ('font-stretch', 'font-weight', 'font-style'):
-                    print('%s: %s' % (key, font[key]))
+                print("\t%s: %s" % (font["full_name"], font["path"]))
+                print(end="\t")
+                for key in ("font-stretch", "font-weight", "font-style"):
+                    print("%s: %s" % (key, font[key]))
                 print()
-                print('\tSub-family: %s' % (font['wws_subfamily_name'] or
-                                            font['preferred_subfamily_name']
-                                            or font['subfamily_name']))
+                print(
+                    "\tSub-family: %s"
+                    % (
+                        font["wws_subfamily_name"]
+                        or font["preferred_subfamily_name"]
+                        or font["subfamily_name"]
+                    )
+                )
                 print()
             print()
 
@@ -384,5 +414,5 @@ def force_rescan():
     font_scanner.run()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     font_scanner.dump_fonts()

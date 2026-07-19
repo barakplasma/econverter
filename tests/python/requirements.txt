@@ -1,0 +1,19 @@
+# Mirrors the Chaquopy pip block in app/build.gradle.kts. Keep the two lists
+# in sync. html5-parser is deliberately absent: it is unavailable on Android,
+# and its absence forces the same compat code paths the app uses.
+beautifulsoup4>=4.9.3
+chardet>=7,<8
+css-parser>=1.0.6
+filelock>=3.0.12
+html2text>=2020.1.16
+lxml
+markdown>=3.4,<4
+merm==0.1.5
+odfpy>=1.4.1
+pillow>=8.0.1
+python-dateutil>=2.8.1
+reportlab>=4.0
+svglib>=0.9.3
+tinycss>=0.4
+
+pytest

@@ -1,18 +1,18 @@
 # multiple replace from dictionnary : http://code.activestate.com/recipes/81330/
 import re
+
 try:
     from collections import UserDict
 except ImportError:
     from UserDict import UserDict
 
 
-__license__ = 'GPL v3'
-__copyright__ = '2010, sengian <sengian1 @ gmail.com>'
-__docformat__ = 'restructuredtext en'
+__license__ = "GPL v3"
+__copyright__ = "2010, sengian <sengian1 @ gmail.com>"
+__docformat__ = "restructuredtext en"
 
 
 class MReplace(UserDict):
-
     def __init__(self, data=None, case_sensitive=True):
         UserDict.__init__(self, data)
         self.re = None
@@ -35,7 +35,7 @@ class MReplace(UserDict):
                     self.regex = re.compile(self.re, re.I)
 
     def __call__(self, mo):
-        return self[mo.string[mo.start():mo.end()]]
+        return self[mo.string[mo.start() : mo.end()]]
 
     def mreplace(self, text):
         # Replace without regex compile

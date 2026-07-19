@@ -6,6 +6,13 @@ plugins {
     id("com.diffplug.spotless")
 }
 
+// Version is derived from the environment so master releases never need a
+// hand-edited versionCode/versionName commit. CI passes the run number;
+// local/debug builds fall back to a "dev" name at the base version code.
+val versionBaseCode = 12
+val versionSuffix = System.getenv("VERSION_SUFFIX") ?: "dev"
+val versionCodeOffset = (System.getenv("VERSION_CODE_OFFSET") ?: "0").toInt()
+
 android {
     namespace = "com.econverter.app"
     compileSdk = 35
@@ -14,8 +21,8 @@ android {
         applicationId = "com.econverter.app"
         minSdk = 24
         targetSdk = 35
-        versionCode = 12
-        versionName = "1.0.6-markdown.6"
+        versionCode = versionBaseCode + versionCodeOffset
+        versionName = "1.0.6-markdown.$versionSuffix"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {

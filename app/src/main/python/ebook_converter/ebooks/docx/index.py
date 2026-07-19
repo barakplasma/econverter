@@ -5,51 +5,57 @@ from lxml import etree
 from ebook_converter.utils.icu import partition_by_first_letter, sort_key
 
 
-__license__ = 'GPL v3'
-__copyright__ = '2014, Kovid Goyal <kovid at kovidgoyal.net>'
+__license__ = "GPL v3"
+__copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def get_applicable_xe_fields(index, xe_fields, XPath, expand):
-    iet = index.get('entry-type', None)
-    xe_fields = [xe for xe in xe_fields if xe.get('entry-type', None) == iet]
+    iet = index.get("entry-type", None)
+    xe_fields = [xe for xe in xe_fields if xe.get("entry-type", None) == iet]
 
-    lr = index.get('letter-range', None)
+    lr = index.get("letter-range", None)
     if lr is not None:
-        sl, el = lr.parition('-')[0::2]
+        sl, el = lr.parition("-")[0::2]
         sl, el = sl.strip(), el.strip()
         if sl and el:
+
             def inrange(text):
                 return sl <= text[0] <= el
-            xe_fields = [xe for xe in xe_fields if inrange(xe.get('text', ''))]
 
-    bmark = index.get('bookmark', None)
+            xe_fields = [xe for xe in xe_fields if inrange(xe.get("text", ""))]
+
+    bmark = index.get("bookmark", None)
     if bmark is None:
         return xe_fields
-    attr = expand('w:name')
-    bookmarks = {b for b in XPath('//w:bookmarkStart')(xe_fields[0]['start_elem']) if b.get(attr, None) == bmark}
-    ancestors = XPath('ancestor::w:bookmarkStart')
+    attr = expand("w:name")
+    bookmarks = {
+        b
+        for b in XPath("//w:bookmarkStart")(xe_fields[0]["start_elem"])
+        if b.get(attr, None) == bmark
+    }
+    ancestors = XPath("ancestor::w:bookmarkStart")
 
     def contained(xe):
         # Check if the xe field is contained inside a bookmark with the
         # specified name
-        return bool(set(ancestors(xe['start_elem'])) & bookmarks)
+        return bool(set(ancestors(xe["start_elem"])) & bookmarks)
 
     return [xe for xe in xe_fields if contained(xe)]
 
 
 def make_block(expand, style, parent, pos):
-    p = parent.makeelement(expand('w:p'))
+    p = parent.makeelement(expand("w:p"))
     parent.insert(pos, p)
     if style is not None:
-        ppr = p.makeelement(expand('w:pPr'))
+        ppr = p.makeelement(expand("w:pPr"))
         p.append(ppr)
-        ps = ppr.makeelement(expand('w:pStyle'))
+        ps = ppr.makeelement(expand("w:pStyle"))
         ppr.append(ps)
-        ps.set(expand('w:val'), style)
-    r = p.makeelement(expand('w:r'))
+        ps.set(expand("w:val"), style)
+    r = p.makeelement(expand("w:r"))
     p.append(r)
-    t = r.makeelement(expand('w:t'))
-    t.set(expand('xml:space'), 'preserve')
+    t = r.makeelement(expand("w:t"))
+    t.set(expand("xml:space"), "preserve")
     r.append(t)
     return p, t
 
@@ -57,34 +63,34 @@ def make_block(expand, style, parent, pos):
 def add_xe(xe, t, expand):
     run = t.getparent()
     idx = run.index(t)
-    t.text = xe.get('text') or ' '
-    pt = xe.get('page-number-text', None)
+    t.text = xe.get("text") or " "
+    pt = xe.get("page-number-text", None)
 
     if pt:
         p = t.getparent().getparent()
-        r = p.makeelement(expand('w:r'))
+        r = p.makeelement(expand("w:r"))
         p.append(r)
-        t2 = r.makeelement(expand('w:t'))
-        t2.set(expand('xml:space'), 'preserve')
-        t2.text = ' [%s]' % pt
+        t2 = r.makeelement(expand("w:t"))
+        t2.set(expand("xml:space"), "preserve")
+        t2.text = " [%s]" % pt
         r.append(t2)
     # put separate entries on separate lines
-    run.insert(idx + 1, run.makeelement(expand('w:br')))
-    return xe['anchor'], run
+    run.insert(idx + 1, run.makeelement(expand("w:br")))
+    return xe["anchor"], run
 
 
 def process_index(field, index, xe_fields, log, XPath, expand):
-    '''
+    """
     We remove all the word generated index markup and replace it with our own
     that is more suitable for an ebook.
-    '''
+    """
     styles = []
-    heading_text = index.get('heading', None)
-    heading_style = 'IndexHeading'
+    heading_text = index.get("heading", None)
+    heading_style = "IndexHeading"
     start_pos = None
     for elem in field.contents:
-        if elem.tag.endswith('}p'):
-            s = XPath('descendant::pStyle/@w:val')(elem)
+        if elem.tag.endswith("}p"):
+            s = XPath("descendant::pStyle/@w:val")(elem)
             if s:
                 styles.append(s[0])
             p = elem.getparent()
@@ -96,14 +102,14 @@ def process_index(field, index, xe_fields, log, XPath, expand):
     if not xe_fields:
         return [], []
     if heading_text is not None:
-        groups = partition_by_first_letter(xe_fields, key=itemgetter('text'))
+        groups = partition_by_first_letter(xe_fields, key=itemgetter("text"))
         items = []
         for key, fields in groups.items():
             items.append(key), items.extend(fields)
         if styles:
             heading_style = styles[0]
     else:
-        items = sorted(xe_fields, key=lambda x:sort_key(x['text']))
+        items = sorted(xe_fields, key=lambda x: sort_key(x["text"]))
 
     hyperlinks = []
     blocks = []
@@ -113,7 +119,7 @@ def process_index(field, index, xe_fields, log, XPath, expand):
         p, t = make_block(expand, style, *start_pos)
         if is_heading:
             text = heading_text
-            if text.lower().startswith('a'):
+            if text.lower().startswith("a"):
                 text = item + text[1:]
             t.text = text
         else:
@@ -127,17 +133,17 @@ def split_up_block(block, a, text, parts, ldict):
     prefix = parts[:-1]
     a.text = parts[-1]
     parent = a.getparent()
-    style = 'display:block; margin-left: %.3gem'
+    style = "display:block; margin-left: %.3gem"
     for i, prefix in enumerate(prefix):
         m = 1.5 * i
-        span = parent.makeelement('span', style=style % m)
-        ldict[span]    = i
+        span = parent.makeelement("span", style=style % m)
+        ldict[span] = i
         parent.append(span)
         span.text = prefix
-    span = parent.makeelement('span', style=style % ((i + 1) * 1.5))
+    span = parent.makeelement("span", style=style % ((i + 1) * 1.5))
     parent.append(span)
     span.append(a)
-    ldict[span]    = len(prefix)
+    ldict[span] = len(prefix)
 
 
 """
@@ -179,11 +185,11 @@ def find_match(prev_block, pind, nextent, ldict):
     curlevel = ldict.get(prev_block[pind], -1)
     if curlevel < 0:
         return -1
-    for p in range(pind+1, len(prev_block)):
+    for p in range(pind + 1, len(prev_block)):
         trylev = ldict.get(prev_block[p], -1)
         if trylev <= curlevel:
             return -1
-        if trylev > (curlevel+1):
+        if trylev > (curlevel + 1):
             continue
         if prev_block[p].text_content() == nextent.text_content():
             return p
@@ -191,16 +197,16 @@ def find_match(prev_block, pind, nextent, ldict):
 
 
 def add_link(pent, nent, ldict):
-    na = nent.xpath('descendant::a[1]')
+    na = nent.xpath("descendant::a[1]")
     # If there is no link, leave it as text
     if not na or len(na) == 0:
         return
     na = na[0]
-    pa = pent.xpath('descendant::a')
+    pa = pent.xpath("descendant::a")
     if pa and len(pa) > 0:
         # Put on same line with a comma
         pa = pa[-1]
-        pa.tail = ', '
+        pa.tail = ", "
         p = pa.getparent()
         p.insert(p.index(pa) + 1, na)
     else:
@@ -237,26 +243,30 @@ def polish_index_markup(index, blocks):
     path_map = {}
     ldict = {}
     for block in blocks:
-        cls = block.get('class', '') or ''
-        block.set('class', (cls + ' index-entry').lstrip())
-        a = block.xpath('descendant::a[1]')
-        text = ''
+        cls = block.get("class", "") or ""
+        block.set("class", (cls + " index-entry").lstrip())
+        a = block.xpath("descendant::a[1]")
+        text = ""
         if a:
-            text = etree.tostring(a[0], method='text', with_tail=False, encoding='unicode').strip()
-        if ':' in text:
-            path_map[block] = parts = list(filter(None, (x.strip() for x in text.split(':'))))
+            text = etree.tostring(
+                a[0], method="text", with_tail=False, encoding="unicode"
+            ).strip()
+        if ":" in text:
+            path_map[block] = parts = list(
+                filter(None, (x.strip() for x in text.split(":")))
+            )
             if len(parts) > 1:
                 split_up_block(block, a[0], text, parts, ldict)
         else:
             # try using a span all the time
             path_map[block] = [text]
             parent = a[0].getparent()
-            span = parent.makeelement('span', style='display:block; margin-left: 0em')
+            span = parent.makeelement("span", style="display:block; margin-left: 0em")
             parent.append(span)
             span.append(a[0])
             ldict[span] = 0
 
-        for br in block.xpath('descendant::br'):
+        for br in block.xpath("descendant::br"):
             br.tail = None
 
     # We want a single block for each main entry

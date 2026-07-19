@@ -18,16 +18,17 @@ from . import open_for_read, open_for_write
 
 class ListNumbers:
     """
-        RTF puts list numbers outside of the paragraph. The public method
-        in this class put the list numbers inside the paragraphs.
+    RTF puts list numbers outside of the paragraph. The public method
+    in this class put the list numbers inside the paragraphs.
     """
 
-    def __init__(self,
-            in_file,
-            bug_handler,
-            copy=None,
-            run_level=1,
-            ):
+    def __init__(
+        self,
+        in_file,
+        bug_handler,
+        copy=None,
+        run_level=1,
+    ):
         """
         Required:
             'file'
@@ -37,7 +38,7 @@ class ListNumbers:
             directory from which the script is run.)
         Returns:
             nothing
-            """
+        """
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__copy = copy
@@ -52,14 +53,14 @@ class ListNumbers:
             Nothing
         """
         self.__state = "default"
-        self.__list_chunk = ''
-        self.__previous_line = ''
-        self.__list_text_ob_count = ''
-        self.__state_dict={
-        'default'           :   self.__default_func,
-        'after_ob'          :   self.__after_ob_func,
-        'list_text'         :   self.__list_text_func,
-        'after_list_text'   :   self.__after_list_text_func
+        self.__list_chunk = ""
+        self.__previous_line = ""
+        self.__list_text_ob_count = ""
+        self.__state_dict = {
+            "default": self.__default_func,
+            "after_ob": self.__after_ob_func,
+            "list_text": self.__list_text_func,
+            "after_list_text": self.__after_list_text_func,
         }
 
     def __after_ob_func(self, line):
@@ -69,61 +70,61 @@ class ListNumbers:
             self, line
         Returns:
             Nothing
-            """
-        if self.__token_info == 'cw<ls<list-text_':
-            self.__state = 'list_text'
-            self.__list_chunk = self.__list_chunk + \
-            self.__previous_line + line
+        """
+        if self.__token_info == "cw<ls<list-text_":
+            self.__state = "list_text"
+            self.__list_chunk = self.__list_chunk + self.__previous_line + line
             self.__list_text_ob = self.__ob_count
             self.__cb_count = 0
         else:
             self.__write_obj.write(self.__previous_line)
             self.__write_obj.write(line)
-            self.__state = 'default'
+            self.__state = "default"
 
     def __after_list_text_func(self, line):
         """
         Look for an open bracket or a line of text, and then print out the
         self.__list_chunk. Print out the line.
         """
-        if line[0:2] == 'ob' or line[0:2] == 'tx':
-            self.__state = 'default'
-            self.__write_obj.write('mi<mk<lst-txbeg_\n')
-            self.__write_obj.write('mi<mk<para-beg__\n')
-            self.__write_obj.write('mi<mk<lst-tx-beg\n')
+        if line[0:2] == "ob" or line[0:2] == "tx":
+            self.__state = "default"
+            self.__write_obj.write("mi<mk<lst-txbeg_\n")
+            self.__write_obj.write("mi<mk<para-beg__\n")
+            self.__write_obj.write("mi<mk<lst-tx-beg\n")
             self.__write_obj.write(
                 # 'mi<tg<open-att__<list-text<type>%s\n' % self.__list_type)
-                'mi<tg<open-att__<list-text\n')
+                "mi<tg<open-att__<list-text\n"
+            )
             self.__write_obj.write(self.__list_chunk)
-            self.__write_obj.write('mi<tg<close_____<list-text\n')
-            self.__write_obj.write('mi<mk<lst-tx-end\n')
-            self.__list_chunk = ''
+            self.__write_obj.write("mi<tg<close_____<list-text\n")
+            self.__write_obj.write("mi<mk<lst-tx-end\n")
+            self.__list_chunk = ""
         self.__write_obj.write(line)
 
     def __determine_list_type(self, chunk):
         """
         Determine if the list is ordered or itemized
         """
-        lines = chunk.split('\n')
-        text_string = ''
+        lines = chunk.split("\n")
+        text_string = ""
         for line in lines:
-            if line[0:5] == 'tx<hx':
-                if line[17:] == '\'B7':
+            if line[0:5] == "tx<hx":
+                if line[17:] == "'B7":
                     return "unordered"
-            elif line[0:5] == 'tx<nu':
+            elif line[0:5] == "tx<nu":
                 text_string += line[17:]
-        text_string = text_string.replace('.', '')
-        text_string = text_string.replace('(', '')
-        text_string = text_string.replace(')', '')
+        text_string = text_string.replace(".", "")
+        text_string = text_string.replace("(", "")
+        text_string = text_string.replace(")", "")
         if text_string.isdigit():
-            return 'ordered'
+            return "ordered"
         """
         sys.stderr.write('module is list_numbers\n')
         sys.stderr.write('method is __determine type\n')
         sys.stderr.write('Couldn\'t get type of list\n')
         """
         # must be some type of ordered list -- just a guess!
-        return 'unordered'
+        return "unordered"
 
     def __list_text_func(self, line):
         """
@@ -134,13 +135,13 @@ class ListNumbers:
             self, line
         Returns:
             Nothing
-            """
+        """
         if self.__list_text_ob == self.__cb_count:
-            self.__state = 'after_list_text'
+            self.__state = "after_list_text"
             self.__right_after_list_text = 1
             self.__list_type = self.__determine_list_type(self.__list_chunk)
-            self.__write_obj.write('mi<mk<list-type_<%s\n' % self.__list_type)
-        if self.__token_info != 'cw<pf<par-def___':
+            self.__write_obj.write("mi<mk<list-type_<%s\n" % self.__list_type)
+        if self.__token_info != "cw<pf<par-def___":
             self.__list_chunk = self.__list_chunk + line
 
     def __default_func(self, line):
@@ -153,9 +154,9 @@ class ListNumbers:
             self, line
         Returns:
             Nothing
-            """
-        if self.__token_info == 'ob<nu<open-brack':
-            self.__state = 'after_ob'
+        """
+        if self.__token_info == "ob<nu<open-brack":
+            self.__state = "after_ob"
             self.__previous_line = line
         else:
             self.__write_obj.write(line)
@@ -185,9 +186,9 @@ class ListNumbers:
             line_to_read = read_obj.readline()
             line = line_to_read
             self.__token_info = line[:16]
-            if self.__token_info == 'ob<nu<open-brack':
+            if self.__token_info == "ob<nu<open-brack":
                 self.__ob_count = line[-5:-1]
-            if self.__token_info == 'cb<nu<clos-brack':
+            if self.__token_info == "cb<nu<clos-brack":
                 self.__cb_count = line[-5:-1]
             action = self.__state_dict.get(self.__state)
             action(line)

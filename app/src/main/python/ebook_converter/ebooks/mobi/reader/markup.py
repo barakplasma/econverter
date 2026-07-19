@@ -1,11 +1,12 @@
-import re, os
+import re
+import os
 
 from ebook_converter.ebooks.chardet import strip_encoding_declarations
 
 
-__license__ = 'GPL v3'
-__copyright__ = '2012, Kovid Goyal <kovid@kovidgoyal.net>'
-__docformat__ = 'restructuredtext en'
+__license__ = "GPL v3"
+__copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
+__docformat__ = "restructuredtext en"
 
 
 def update_internal_links(mobi8_reader, log):
@@ -20,39 +21,41 @@ def update_internal_links(mobi8_reader, log):
     mr = mobi8_reader
 
     # pos:fid pattern
-    posfid_pattern = re.compile(br'''(<a.*?href=.*?>)''', re.IGNORECASE)
-    posfid_index_pattern = re.compile(br'''['"]kindle:pos:fid:([0-9|A-V]+):off:([0-9|A-V]+).*?["']''')
+    posfid_pattern = re.compile(rb"""(<a.*?href=.*?>)""", re.IGNORECASE)
+    posfid_index_pattern = re.compile(
+        rb"""['"]kindle:pos:fid:([0-9|A-V]+):off:([0-9|A-V]+).*?["']"""
+    )
 
     parts = []
     for part in mr.parts:
         srcpieces = posfid_pattern.split(part)
         for j in range(1, len(srcpieces), 2):
             tag = srcpieces[j]
-            if tag.startswith(b'<'):
+            if tag.startswith(b"<"):
                 for m in posfid_index_pattern.finditer(tag):
                     posfid = m.group(1)
                     offset = m.group(2)
                     try:
                         filename, idtag = mr.get_id_tag_by_pos_fid(
-                            int(posfid, 32), int(offset, 32))
+                            int(posfid, 32), int(offset, 32)
+                        )
                     except ValueError:
-                        log.warning('Invalid link, points to nowhere, '
-                                    'ignoring')
-                        replacement = b'#'
+                        log.warning("Invalid link, points to nowhere, ignoring")
+                        replacement = b"#"
                     else:
-                        suffix = (b'#' + idtag) if idtag else b''
-                        replacement = filename.split('/')[-1].encode(
-                                mr.header.codec) + suffix
-                        replacement = replacement.replace(b'"', b'&quot;')
+                        suffix = (b"#" + idtag) if idtag else b""
+                        replacement = (
+                            filename.split("/")[-1].encode(mr.header.codec) + suffix
+                        )
+                        replacement = replacement.replace(b'"', b"&quot;")
                     tag = posfid_index_pattern.sub(b'"' + replacement + b'"', tag, 1)
                 srcpieces[j] = tag
-        raw = b''.join(srcpieces)
+        raw = b"".join(srcpieces)
         try:
             parts.append(raw.decode(mr.header.codec))
         except UnicodeDecodeError:
-            log.warning('Failed to decode text in KF8 part, replacing bad '
-                        'bytes')
-            parts.append(raw.decode(mr.header.codec, 'replace'))
+            log.warning("Failed to decode text in KF8 part, replacing bad bytes")
+            parts.append(raw.decode(mr.header.codec, "replace"))
 
     # All parts are now unicode and have no internal links
     return parts
@@ -62,24 +65,25 @@ def remove_kindlegen_markup(parts, aid_anchor_suffix, linked_aids):
 
     # we can safely remove all of the Kindlegen generated aid attributes and
     # calibre generated cid attributes
-    find_tag_with_aid_pattern = re.compile(r'''(<[^>]*\s[ac]id\s*=[^>]*>)''',
-            re.IGNORECASE)
-    within_tag_aid_position_pattern = re.compile(r'''\s[ac]id\s*=['"]([^'"]*)['"]''')
+    find_tag_with_aid_pattern = re.compile(
+        r"""(<[^>]*\s[ac]id\s*=[^>]*>)""", re.IGNORECASE
+    )
+    within_tag_aid_position_pattern = re.compile(r"""\s[ac]id\s*=['"]([^'"]*)['"]""")
 
     for i in range(len(parts)):
         part = parts[i]
         srcpieces = find_tag_with_aid_pattern.split(part)
         for j in range(len(srcpieces)):
             tag = srcpieces[j]
-            if tag.startswith('<'):
+            if tag.startswith("<"):
                 for m in within_tag_aid_position_pattern.finditer(tag):
                     try:
                         aid = m.group(1)
                     except IndexError:
                         aid = None
-                    replacement = ''
+                    replacement = ""
                     if aid in linked_aids:
-                        replacement = ' id="%s"' % (aid + '-' + aid_anchor_suffix)
+                        replacement = ' id="%s"' % (aid + "-" + aid_anchor_suffix)
                     tag = within_tag_aid_position_pattern.sub(replacement, tag, 1)
                 srcpieces[j] = tag
         part = "".join(srcpieces)
@@ -88,18 +92,21 @@ def remove_kindlegen_markup(parts, aid_anchor_suffix, linked_aids):
     # we can safely remove all of the Kindlegen generated data-AmznPageBreak
     # attributes
     find_tag_with_AmznPageBreak_pattern = re.compile(
-            r'''(<[^>]*\sdata-AmznPageBreak=[^>]*>)''', re.IGNORECASE)
+        r"""(<[^>]*\sdata-AmznPageBreak=[^>]*>)""", re.IGNORECASE
+    )
     within_tag_AmznPageBreak_position_pattern = re.compile(
-            r'''\sdata-AmznPageBreak=['"]([^'"]*)['"]''')
+        r"""\sdata-AmznPageBreak=['"]([^'"]*)['"]"""
+    )
 
     for i in range(len(parts)):
         part = parts[i]
         srcpieces = find_tag_with_AmznPageBreak_pattern.split(part)
         for j in range(len(srcpieces)):
             tag = srcpieces[j]
-            if tag.startswith('<'):
+            if tag.startswith("<"):
                 srcpieces[j] = within_tag_AmznPageBreak_position_pattern.sub(
-                    lambda m:' style="page-break-after:%s"'%m.group(1), tag)
+                    lambda m: ' style="page-break-after:%s"' % m.group(1), tag
+                )
         part = "".join(srcpieces)
         parts[i] = part
 
@@ -112,16 +119,24 @@ def update_flow_links(mobi8_reader, resource_map, log):
     mr = mobi8_reader
     flows = []
 
-    img_pattern = re.compile(r'''(<[img\s|image\s|svg:image\s][^>]*>)''', re.IGNORECASE)
-    img_index_pattern = re.compile(r'''['"]kindle:embed:([0-9|A-V]+)[^'"]*['"]''', re.IGNORECASE)
+    img_pattern = re.compile(r"""(<[img\s|image\s|svg:image\s][^>]*>)""", re.IGNORECASE)
+    img_index_pattern = re.compile(
+        r"""['"]kindle:embed:([0-9|A-V]+)[^'"]*['"]""", re.IGNORECASE
+    )
 
-    tag_pattern = re.compile(r'''(<[^>]*>)''')
-    flow_pattern = re.compile(r'''['"]kindle:flow:([0-9|A-V]+)\?mime=([^'"]+)['"]''', re.IGNORECASE)
+    tag_pattern = re.compile(r"""(<[^>]*>)""")
+    flow_pattern = re.compile(
+        r"""['"]kindle:flow:([0-9|A-V]+)\?mime=([^'"]+)['"]""", re.IGNORECASE
+    )
 
-    url_pattern = re.compile(r'''(url\(.*?\))''', re.IGNORECASE)
-    url_img_index_pattern = re.compile(r'''kindle:embed:([0-9|A-V]+)\?mime=image/[^\)]*''', re.IGNORECASE)
-    font_index_pattern = re.compile(r'''kindle:embed:([0-9|A-V]+)''', re.IGNORECASE)
-    url_css_index_pattern = re.compile(r'''kindle:flow:([0-9|A-V]+)\?mime=text/css[^\)]*''', re.IGNORECASE)
+    url_pattern = re.compile(r"""(url\(.*?\))""", re.IGNORECASE)
+    url_img_index_pattern = re.compile(
+        r"""kindle:embed:([0-9|A-V]+)\?mime=image/[^\)]*""", re.IGNORECASE
+    )
+    font_index_pattern = re.compile(r"""kindle:embed:([0-9|A-V]+)""", re.IGNORECASE)
+    url_css_index_pattern = re.compile(
+        r"""kindle:flow:([0-9|A-V]+)\?mime=text/css[^\)]*""", re.IGNORECASE
+    )
 
     for flow in mr.flows:
         if flow is None:  # 0th flow is None
@@ -132,25 +147,28 @@ def update_flow_links(mobi8_reader, resource_map, log):
             try:
                 flow = flow.decode(mr.header.codec)
             except UnicodeDecodeError:
-                log.error('Flow part has invalid %s encoded bytes',
-                          mr.header.codec)
-                flow = flow.decode(mr.header.codec, 'replace')
+                log.error("Flow part has invalid %s encoded bytes", mr.header.codec)
+                flow = flow.decode(mr.header.codec, "replace")
 
         # links to raster image files from image tags
         # image_pattern
         srcpieces = img_pattern.split(flow)
         for j in range(1, len(srcpieces), 2):
             tag = srcpieces[j]
-            if tag.startswith('<im') or tag.startswith('<svg:image'):
+            if tag.startswith("<im") or tag.startswith("<svg:image"):
                 for m in img_index_pattern.finditer(tag):
                     num = int(m.group(1), 32)
-                    href = resource_map[num-1]
+                    href = resource_map[num - 1]
                     if href:
-                        replacement = '"%s"'%('../'+ href)
+                        replacement = '"%s"' % ("../" + href)
                         tag = img_index_pattern.sub(replacement, tag, 1)
                     else:
-                        log.warning('Referenced image %s was not recognized '
-                                    'as a valid image in %s', num, tag)
+                        log.warning(
+                            "Referenced image %s was not recognized "
+                            "as a valid image in %s",
+                            num,
+                            tag,
+                        )
                 srcpieces[j] = tag
         flow = "".join(srcpieces)
 
@@ -162,32 +180,38 @@ def update_flow_links(mobi8_reader, resource_map, log):
             # process links to raster image files
             for m in url_img_index_pattern.finditer(tag):
                 num = int(m.group(1), 32)
-                href = resource_map[num-1]
+                href = resource_map[num - 1]
                 if href:
-                    replacement = '"%s"'%('../'+ href)
+                    replacement = '"%s"' % ("../" + href)
                     tag = url_img_index_pattern.sub(replacement, tag, 1)
                 else:
-                    log.warning('Referenced image %s was not recognized as a '
-                                'valid image in %s', num, tag)
+                    log.warning(
+                        "Referenced image %s was not recognized as a valid image in %s",
+                        num,
+                        tag,
+                    )
 
             # process links to fonts
             for m in font_index_pattern.finditer(tag):
                 num = int(m.group(1), 32)
-                href = resource_map[num-1]
+                href = resource_map[num - 1]
                 if href is None:
-                    log.warning('Referenced font %s was not recognized as a '
-                                'valid font in %s', num, tag)
+                    log.warning(
+                        "Referenced font %s was not recognized as a valid font in %s",
+                        num,
+                        tag,
+                    )
                 else:
-                    replacement = '"%s"'%('../'+ href)
-                    if href.endswith('.failed'):
-                        replacement = '"%s"'%('failed-'+href)
+                    replacement = '"%s"' % ("../" + href)
+                    if href.endswith(".failed"):
+                        replacement = '"%s"' % ("failed-" + href)
                     tag = font_index_pattern.sub(replacement, tag, 1)
 
             # process links to other css pieces
             for m in url_css_index_pattern.finditer(tag):
                 num = int(m.group(1), 32)
                 fi = mr.flowinfo[num]
-                replacement = '"../' + fi.dir + '/' + fi.fname + '"'
+                replacement = '"../' + fi.dir + "/" + fi.fname + '"'
                 tag = url_css_index_pattern.sub(replacement, tag, 1)
 
             srcpieces[j] = tag
@@ -197,21 +221,20 @@ def update_flow_links(mobi8_reader, resource_map, log):
         srcpieces = re.split(tag_pattern, flow)
         for j in range(1, len(srcpieces), 2):
             tag = srcpieces[j]
-            if tag.startswith('<'):
+            if tag.startswith("<"):
                 for m in re.finditer(flow_pattern, tag):
                     try:
                         num = int(m.group(1), 32)
                         fi = mr.flowinfo[num]
                     except IndexError:
-                        log.warning('Ignoring invalid flow reference in '
-                                    'tag %s', tag)
-                        tag = ''
+                        log.warning("Ignoring invalid flow reference in tag %s", tag)
+                        tag = ""
                     else:
-                        if fi.format == 'inline':
+                        if fi.format == "inline":
                             flowtext = mr.flows[num]
                             tag = flowtext
                         else:
-                            replacement = '"../' + fi.dir + '/' + fi.fname + '"'
+                            replacement = '"../' + fi.dir + "/" + fi.fname + '"'
                             tag = flow_pattern.sub(replacement, tag, 1)
                 srcpieces[j] = tag
         flow = "".join(srcpieces)
@@ -226,29 +249,30 @@ def insert_flows_into_markup(parts, flows, mobi8_reader, log):
     mr = mobi8_reader
 
     # kindle:flow:XXXX?mime=YYYY/ZZZ (used for style sheets, svg images, etc)
-    tag_pattern = re.compile(r'''(<[^>]*>)''')
-    flow_pattern = re.compile(r'''['"]kindle:flow:([0-9|A-V]+)\?mime=([^'"]+)['"]''', re.IGNORECASE)
+    tag_pattern = re.compile(r"""(<[^>]*>)""")
+    flow_pattern = re.compile(
+        r"""['"]kindle:flow:([0-9|A-V]+)\?mime=([^'"]+)['"]""", re.IGNORECASE
+    )
     for i in range(len(parts)):
         part = parts[i]
 
         # flow pattern
         srcpieces = tag_pattern.split(part)
-        for j in range(1, len(srcpieces),2):
+        for j in range(1, len(srcpieces), 2):
             tag = srcpieces[j]
-            if tag.startswith('<'):
+            if tag.startswith("<"):
                 for m in flow_pattern.finditer(tag):
                     num = int(m.group(1), 32)
                     try:
                         fi = mr.flowinfo[num]
                     except IndexError:
-                        log.warning('Ignoring invalid flow reference: %s',
-                                    m.group())
-                        tag = ''
+                        log.warning("Ignoring invalid flow reference: %s", m.group())
+                        tag = ""
                     else:
-                        if fi.format == 'inline':
+                        if fi.format == "inline":
                             tag = flows[num]
                         else:
-                            replacement = '"../' + fi.dir + '/' + fi.fname + '"'
+                            replacement = '"../' + fi.dir + "/" + fi.fname + '"'
                             tag = flow_pattern.sub(replacement, tag, 1)
                 srcpieces[j] = tag
         part = "".join(srcpieces)
@@ -259,27 +283,32 @@ def insert_flows_into_markup(parts, flows, mobi8_reader, log):
 def insert_images_into_markup(parts, resource_map, log):
     # Handle any embedded raster images links in the xhtml text
     # kindle:embed:XXXX?mime=image/gif (png, jpeg, etc) (used for images)
-    img_pattern = re.compile(r'''(<[img\s|image\s][^>]*>)''', re.IGNORECASE)
-    img_index_pattern = re.compile(r'''[('"]kindle:embed:([0-9|A-V]+)[^')"]*[)'"]''')
+    img_pattern = re.compile(r"""(<[img\s|image\s][^>]*>)""", re.IGNORECASE)
+    img_index_pattern = re.compile(r"""[('"]kindle:embed:([0-9|A-V]+)[^')"]*[)'"]""")
 
-    style_pattern = re.compile(r'''(<[a-zA-Z0-9]+\s[^>]*style\s*=\s*[^>]*>)''',
-            re.IGNORECASE)
+    style_pattern = re.compile(
+        r"""(<[a-zA-Z0-9]+\s[^>]*style\s*=\s*[^>]*>)""", re.IGNORECASE
+    )
 
     for i in range(len(parts)):
         part = parts[i]
         srcpieces = img_pattern.split(part)
         for j in range(1, len(srcpieces), 2):
             tag = srcpieces[j]
-            if tag.startswith('<im'):
+            if tag.startswith("<im"):
                 for m in img_index_pattern.finditer(tag):
                     num = int(m.group(1), 32)
-                    href = resource_map[num-1]
+                    href = resource_map[num - 1]
                     if href:
-                        replacement = '"%s"'%('../' + href)
+                        replacement = '"%s"' % ("../" + href)
                         tag = img_index_pattern.sub(replacement, tag, 1)
                     else:
-                        log.warning('Referenced image %s was not recognized '
-                                    'as a valid image in %s', num, tag)
+                        log.warning(
+                            "Referenced image %s was not recognized "
+                            "as a valid image in %s",
+                            num,
+                            tag,
+                        )
                 srcpieces[j] = tag
         part = "".join(srcpieces)
         # store away modified version
@@ -291,18 +320,22 @@ def insert_images_into_markup(parts, resource_map, log):
         srcpieces = style_pattern.split(part)
         for j in range(1, len(srcpieces), 2):
             tag = srcpieces[j]
-            if 'kindle:embed' in tag:
+            if "kindle:embed" in tag:
                 for m in img_index_pattern.finditer(tag):
                     num = int(m.group(1), 32)
-                    href = resource_map[num-1]
+                    href = resource_map[num - 1]
                     osep = m.group()[0]
                     csep = m.group()[-1]
                     if href:
-                        replacement = '%s%s%s'%(osep, '../' + href, csep)
+                        replacement = "%s%s%s" % (osep, "../" + href, csep)
                         tag = img_index_pattern.sub(replacement, tag, 1)
                     else:
-                        log.warning('Referenced image %s was not recognized '
-                                    'as a valid image in %s', num, tag)
+                        log.warning(
+                            "Referenced image %s was not recognized "
+                            "as a valid image in %s",
+                            num,
+                            tag,
+                        )
                 srcpieces[j] = tag
         part = "".join(srcpieces)
         # store away modified version
@@ -310,7 +343,7 @@ def insert_images_into_markup(parts, resource_map, log):
 
 
 def upshift_markup(parts):
-    tag_pattern = re.compile(r'''(<(?:svg)[^>]*>)''', re.IGNORECASE)
+    tag_pattern = re.compile(r"""(<(?:svg)[^>]*>)""", re.IGNORECASE)
 
     for i in range(len(parts)):
         part = parts[i]
@@ -319,9 +352,9 @@ def upshift_markup(parts):
         srcpieces = re.split(tag_pattern, part)
         for j in range(1, len(srcpieces), 2):
             tag = srcpieces[j]
-            if tag[:4].lower() == '<svg':
-                tag = tag.replace('preserveaspectratio','preserveAspectRatio')
-                tag = tag.replace('viewbox','viewBox')
+            if tag[:4].lower() == "<svg":
+                tag = tag.replace("preserveaspectratio", "preserveAspectRatio")
+                tag = tag.replace("viewbox", "viewBox")
             srcpieces[j] = tag
         part = "".join(srcpieces)
         # store away modified version
@@ -333,7 +366,9 @@ def expand_mobi8_markup(mobi8_reader, resource_map, log):
     parts = update_internal_links(mobi8_reader, log)
 
     # Remove pointless markup inserted by kindlegen
-    remove_kindlegen_markup(parts, mobi8_reader.aid_anchor_suffix, mobi8_reader.linked_aids)
+    remove_kindlegen_markup(
+        parts, mobi8_reader.aid_anchor_suffix, mobi8_reader.linked_aids
+    )
 
     # Handle substitutions for the flows pieces first as they may
     # be inlined into the xhtml text
@@ -353,22 +388,22 @@ def expand_mobi8_markup(mobi8_reader, resource_map, log):
     mobi8_reader.flows = flows
 
     # write out the parts and file flows
-    os.mkdir('text')  # directory containing all parts
+    os.mkdir("text")  # directory containing all parts
     spine = []
     for i, part in enumerate(parts):
         pi = mobi8_reader.partinfo[i]
-        with open(os.path.join(pi.type, pi.filename), 'wb') as f:
+        with open(os.path.join(pi.type, pi.filename), "wb") as f:
             part = strip_encoding_declarations(part)
-            part = part.replace('<head>', '<head><meta charset="UTF-8"/>', 1)
-            f.write(part.encode('utf-8'))
+            part = part.replace("<head>", '<head><meta charset="UTF-8"/>', 1)
+            f.write(part.encode("utf-8"))
             spine.append(f.name)
 
     for i, flow in enumerate(flows):
         fi = mobi8_reader.flowinfo[i]
-        if fi.format == 'file':
+        if fi.format == "file":
             if not os.path.exists(fi.dir):
                 os.mkdir(fi.dir)
-            with open(os.path.join(fi.dir, fi.fname), 'wb') as f:
-                f.write(flow.encode('utf-8'))
+            with open(os.path.join(fi.dir, fi.fname), "wb") as f:
+                f.write(flow.encode("utf-8"))
 
     return spine

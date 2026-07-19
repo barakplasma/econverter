@@ -12,7 +12,7 @@ def base64_decode(raw):
         pass
 
     # Try a more robust version (adapted from FBReader sources)
-    A, Z, a, z, zero, nine, plus, slash, equal = bytearray(b'AZaz09+/=')
+    A, Z, a, z, zero, nine, plus, slash, equal = bytearray(b"AZaz09+/=")
     raw = bytearray(raw)
     out = io.BytesIO()
     pos = 0
@@ -38,7 +38,7 @@ def base64_decode(raw):
             i += 1
         triple = bytearray(3)
         for j in (2, 1, 0):
-            triple[j] = tot & 0xff
+            triple[j] = tot & 0xFF
             tot >>= 8
         out.write(bytes(triple))
     return out.getvalue()

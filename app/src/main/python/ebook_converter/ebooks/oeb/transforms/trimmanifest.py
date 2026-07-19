@@ -1,6 +1,7 @@
 """
 OPF manifest trimming transform.
 """
+
 import urllib.parse
 
 from ebook_converter.ebooks.oeb.base import CSS_MIME, OEB_DOCS
@@ -8,7 +9,6 @@ from ebook_converter.ebooks.oeb.base import urlnormalize, iterlinks
 
 
 class ManifestTrimmer(object):
-
     @classmethod
     def config(cls, cfg):
         return cfg
@@ -19,7 +19,8 @@ class ManifestTrimmer(object):
 
     def __call__(self, oeb, context):
         import css_parser
-        oeb.logger.info('Trimming unused files from manifest...')
+
+        oeb.logger.info("Trimming unused files from manifest...")
         self.opts = context
         used = set()
         for term in oeb.metadata:
@@ -39,13 +40,14 @@ class ManifestTrimmer(object):
         while unchecked:
             new = set()
             for item in unchecked:
-                if (item.media_type in OEB_DOCS or
-                    item.media_type[-4:] in ('/xml', '+xml')) and \
-                   item.data is not None:
+                if (
+                    item.media_type in OEB_DOCS
+                    or item.media_type[-4:] in ("/xml", "+xml")
+                ) and item.data is not None:
                     hrefs = [r[2] for r in iterlinks(item.data)]
                     for href in hrefs:
                         if isinstance(href, bytes):
-                            href = href.decode('utf-8')
+                            href = href.decode("utf-8")
                         try:
                             href = item.abshref(urlnormalize(href))
                         except:
@@ -65,5 +67,5 @@ class ManifestTrimmer(object):
             unchecked = new
         for item in oeb.manifest.values():
             if item not in used:
-                oeb.logger.info('Trimming %r from manifest', item.href)
+                oeb.logger.info("Trimming %r from manifest", item.href)
                 oeb.manifest.remove(item)

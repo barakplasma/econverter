@@ -5,21 +5,19 @@ from ebook_converter.customize.conversion import InputFormatPlugin
 
 
 class HTMLZInput(InputFormatPlugin):
+    name = "HTLZ Input"
+    author = "John Schember"
+    description = "Convert HTML files to HTML"
+    file_types = {"htmlz"}
+    commit_name = "htmlz_input"
 
-    name = 'HTLZ Input'
-    author = 'John Schember'
-    description = 'Convert HTML files to HTML'
-    file_types = {'htmlz'}
-    commit_name = 'htmlz_input'
-
-    def convert(self, stream, options, file_ext, log,
-                accelerators):
+    def convert(self, stream, options, file_ext, log, accelerators):
         from ebook_converter.ebooks.chardet import xml_to_unicode
         from ebook_converter.ebooks.metadata.opf2 import OPF
         from ebook_converter.utils.zipfile import ZipFile
 
         self.log = log
-        html = u''
+        html = ""
         top_levels = []
 
         # Extract content from zip archive.
@@ -28,22 +26,21 @@ class HTMLZInput(InputFormatPlugin):
 
         # Find the HTML file in the archive. It needs to be
         # top level.
-        index = u''
+        index = ""
         multiple_html = False
         # Get a list of all top level files in the archive.
-        for x in os.listdir(u'.'):
+        for x in os.listdir("."):
             if os.path.isfile(x):
                 top_levels.append(x)
         # Try to find an index. file.
         for x in top_levels:
-            if x.lower() in ('index.html', 'index.xhtml', 'index.htm'):
+            if x.lower() in ("index.html", "index.xhtml", "index.htm"):
                 index = x
                 break
         # Look for multiple HTML files in the archive. We look at the
         # top level files only as only they matter in HTMLZ.
         for x in top_levels:
-            if os.path.splitext(x)[1].lower() in ('.html', '.xhtml',
-                                                  '.htm'):
+            if os.path.splitext(x)[1].lower() in (".html", ".xhtml", ".htm"):
                 # Set index to the first HTML file found if it's not
                 # called index.
                 if not index:
@@ -55,50 +52,55 @@ class HTMLZInput(InputFormatPlugin):
         # HTMLZ archive probably won't turn out as the user expects. With
         # Multiple HTML files ZIP input should be used in place of HTMLZ.
         if multiple_html:
-            log.warning('Multiple HTML files found in the archive. Only %s '
-                        'will be used.', index)
+            log.warning(
+                "Multiple HTML files found in the archive. Only %s will be used.", index
+            )
 
         if index:
-            with open(index, 'rb') as tf:
+            with open(index, "rb") as tf:
                 html = tf.read()
         else:
-            raise Exception('No top level HTML file found.')
+            raise Exception("No top level HTML file found.")
 
         if not html:
-            raise Exception('Top level HTML file %s is empty' % index)
+            raise Exception("Top level HTML file %s is empty" % index)
 
         # Encoding
         if options.input_encoding:
             ienc = options.input_encoding
         else:
             ienc = xml_to_unicode(html[:4096])[-1]
-        html = html.decode(ienc, 'replace')
+        html = html.decode(ienc, "replace")
 
         # Run the HTML through the html processing plugin.
         from ebook_converter.customize.ui import plugin_for_input_format
-        html_input = plugin_for_input_format('html')
+
+        html_input = plugin_for_input_format("html")
         for opt in html_input.options:
             setattr(options, opt.option.name, opt.recommended_value)
-        options.input_encoding = 'utf-8'
+        options.input_encoding = "utf-8"
         base = os.getcwd()
-        htmlfile = os.path.join(base, u'index.html')
+        htmlfile = os.path.join(base, "index.html")
         c = 0
         while os.path.exists(htmlfile):
             c += 1
-            htmlfile = u'index%d.html' % c
-        with open(htmlfile, 'wb') as f:
-            f.write(html.encode('utf-8'))
+            htmlfile = "index%d.html" % c
+        with open(htmlfile, "wb") as f:
+            f.write(html.encode("utf-8"))
         odi = options.debug_pipeline
         options.debug_pipeline = None
         # Generate oeb from html conversion.
-        with open(htmlfile, 'rb') as f:
-            oeb = html_input.convert(f, options, 'html', log, {})
+        with open(htmlfile, "rb") as f:
+            oeb = html_input.convert(f, options, "html", log, {})
         options.debug_pipeline = odi
         os.remove(htmlfile)
 
         # Set metadata from file.
         from ebook_converter.customize.ui import get_file_type_metadata
-        from ebook_converter.ebooks.oeb.transforms.metadata import meta_info_to_oeb_metadata
+        from ebook_converter.ebooks.oeb.transforms.metadata import (
+            meta_info_to_oeb_metadata,
+        )
+
         mi = get_file_type_metadata(stream, file_ext)
         meta_info_to_oeb_metadata(mi, oeb.metadata, log)
 
@@ -106,7 +108,7 @@ class HTMLZInput(InputFormatPlugin):
         cover_path = None
         opf = None
         for x in top_levels:
-            if os.path.splitext(x)[1].lower() == u'.opf':
+            if os.path.splitext(x)[1].lower() == ".opf":
                 opf = x
                 break
         if opf:
@@ -115,12 +117,11 @@ class HTMLZInput(InputFormatPlugin):
         # Set the cover.
         if cover_path:
             cdata = None
-            with open(os.path.join(os.getcwd(), cover_path), 'rb') as cf:
+            with open(os.path.join(os.getcwd(), cover_path), "rb") as cf:
                 cdata = cf.read()
             cover_name = os.path.basename(cover_path)
-            id, href = oeb.manifest.generate('cover', cover_name)
-            oeb.manifest.add(id, href, mimetypes.guess_type(cover_name)[0],
-                             data=cdata)
-            oeb.guide.add('cover', 'Cover', href)
+            id, href = oeb.manifest.generate("cover", cover_name)
+            oeb.manifest.add(id, href, mimetypes.guess_type(cover_name)[0], data=cdata)
+            oeb.guide.add("cover", "Cover", href)
 
         return oeb

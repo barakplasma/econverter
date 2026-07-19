@@ -14,6 +14,7 @@ until all open file handles are closed. You also cannot delete the containing
 directory until all file handles are closed. To get around this, rename the
 file before deleting it.
 """
+
 import os
 
 
@@ -25,25 +26,24 @@ def find_tests():
     from ebook_converter.ptempfile import TemporaryDirectory
 
     class SharedFileTest(unittest.TestCase):
-
         def test_shared_file(self):
             eq = self.assertEqual
 
             with TemporaryDirectory() as tdir:
-                fname = os.path.join(tdir, 'test.txt')
-                with share_open(fname, 'wb') as f:
-                    f.write(b'a' * 20 * 1024)
+                fname = os.path.join(tdir, "test.txt")
+                with share_open(fname, "wb") as f:
+                    f.write(b"a" * 20 * 1024)
                     eq(fname, f.name)
-                f = share_open(fname, 'rb')
-                eq(f.read(1), b'a')
+                f = share_open(fname, "rb")
+                eq(f.read(1), b"a")
                 os.remove(fname)
-                eq(f.read(1), b'a')
-                f2 = share_open(fname, 'w+b')
-                f2.write(b'b' * 10 * 1024)
+                eq(f.read(1), b"a")
+                f2 = share_open(fname, "w+b")
+                f2.write(b"b" * 10 * 1024)
                 f2.seek(0)
-                eq(f.read(10000), b'a'*10000)
-                eq(f2.read(100), b'b' * 100)
-                f3 = share_open(fname, 'rb')
-                eq(f3.read(100), b'b' * 100)
+                eq(f.read(10000), b"a" * 10000)
+                eq(f2.read(100), b"b" * 100)
+                f3 = share_open(fname, "rb")
+                eq(f3.read(100), b"b" * 100)
 
     return unittest.defaultTestLoader.loadTestsFromTestCase(SharedFileTest)

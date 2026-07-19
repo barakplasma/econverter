@@ -2,7 +2,6 @@ import os
 
 
 class CurrentDir(object):
-
     def __init__(self, path):
         self.path = path
         self.cwd = None

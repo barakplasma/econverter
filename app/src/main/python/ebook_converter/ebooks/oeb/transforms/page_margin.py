@@ -6,26 +6,29 @@ from ebook_converter.ebooks.oeb.base import XPath
 
 
 class RemoveAdobeMargins(object):
-    '''
+    """
     Remove margins specified in Adobe's page templates.
-    '''
+    """
 
     def __call__(self, oeb, log, opts):
         self.oeb, self.opts, self.log = oeb, opts, log
 
         for item in self.oeb.manifest:
-            if (item.media_type in {'application/vnd.adobe-page-template+xml',
-                                    'application/vnd.adobe.page-template+xml',
-                                    'application/adobe-page-template+xml',
-                                    'application/adobe.page-template+xml'} and
-                    hasattr(item.data, 'xpath')):
-                self.log.info('Removing page margins specified in the '
-                              'Adobe page template')
+            if item.media_type in {
+                "application/vnd.adobe-page-template+xml",
+                "application/vnd.adobe.page-template+xml",
+                "application/adobe-page-template+xml",
+                "application/adobe.page-template+xml",
+            } and hasattr(item.data, "xpath"):
+                self.log.info(
+                    "Removing page margins specified in the Adobe page template"
+                )
                 for elem in item.data.xpath(
-                        '//*[@margin-bottom or @margin-top '
-                        'or @margin-left or @margin-right]'):
-                    for margin in ('left', 'right', 'top', 'bottom'):
-                        attr = 'margin-'+margin
+                    "//*[@margin-bottom or @margin-top "
+                    "or @margin-left or @margin-right]"
+                ):
+                    for margin in ("left", "right", "top", "bottom"):
+                        attr = "margin-" + margin
                         elem.attrib.pop(attr, None)
 
 
@@ -34,13 +37,12 @@ class NegativeTextIndent(Exception):
 
 
 class RemoveFakeMargins(object):
-
-    '''
+    """
     Remove left and right margins from paragraph/divs if the same margin is specified
     on almost all the elements at that level.
 
     Must be called only after CSS flattening
-    '''
+    """
 
     def __call__(self, oeb, log, opts):
         if not opts.remove_fake_margins:
@@ -55,11 +57,12 @@ class RemoveFakeMargins(object):
         if stylesheet is None:
             return
 
-        self.log.info('Removing fake margins...')
+        self.log.info("Removing fake margins...")
 
         stylesheet = stylesheet.data
 
         from css_parser.css import CSSRule
+
         for rule in stylesheet.cssRules.rulesOfType(CSSRule.STYLE_RULE):
             self.selector_map[rule.selectorList.selectorText] = rule.style
 
@@ -69,58 +72,61 @@ class RemoveFakeMargins(object):
             try:
                 self.process_level(level)
             except NegativeTextIndent:
-                self.log.debug('Negative text indent detected at level %s, '
-                               'ignoring this level', level)
+                self.log.debug(
+                    "Negative text indent detected at level %s, ignoring this level",
+                    level,
+                )
 
     def get_margins(self, elem):
-        cls = elem.get('class', None)
+        cls = elem.get("class", None)
         if cls:
-            style = self.selector_map.get('.'+cls, None)
+            style = self.selector_map.get("." + cls, None)
             if style:
                 try:
-                    ti = style['text-indent']
+                    ti = style["text-indent"]
                 except:
                     pass
                 else:
-                    if ((hasattr(ti, 'startswith') and ti.startswith('-')) or
-                            isinstance(ti, numbers.Number) and ti < 0):
+                    if (
+                        (hasattr(ti, "startswith") and ti.startswith("-"))
+                        or isinstance(ti, numbers.Number)
+                        and ti < 0
+                    ):
                         raise NegativeTextIndent()
                 return style.marginLeft, style.marginRight, style
-        return '', '', None
+        return "", "", None
 
     def process_level(self, level):
         elems = self.levels[level]
-        self.stats[level+'_left'] = Counter()
-        self.stats[level+'_right'] = Counter()
+        self.stats[level + "_left"] = Counter()
+        self.stats[level + "_right"] = Counter()
 
         for elem in elems:
             lm, rm = self.get_margins(elem)[:2]
-            self.stats[level+'_left'][lm] += 1
-            self.stats[level+'_right'][rm] += 1
+            self.stats[level + "_left"][lm] += 1
+            self.stats[level + "_right"][rm] += 1
 
-        self.log.debug('%s left margin stats: %s', level,
-                       self.stats[level+'_left'])
-        self.log.debug('%s right margin stats: %s', level,
-                       self.stats[level+'_right'])
+        self.log.debug("%s left margin stats: %s", level, self.stats[level + "_left"])
+        self.log.debug("%s right margin stats: %s", level, self.stats[level + "_right"])
 
-        remove_left = self.analyze_stats(self.stats[level+'_left'])
-        remove_right = self.analyze_stats(self.stats[level+'_right'])
+        remove_left = self.analyze_stats(self.stats[level + "_left"])
+        remove_right = self.analyze_stats(self.stats[level + "_right"])
 
         if remove_left:
-            mcl = self.stats[level+'_left'].most_common(1)[0][0]
-            self.log.info('Removing level %s left margin of: %s', level, mcl)
+            mcl = self.stats[level + "_left"].most_common(1)[0][0]
+            self.log.info("Removing level %s left margin of: %s", level, mcl)
 
         if remove_right:
-            mcr = self.stats[level+'_right'].most_common(1)[0][0]
-            self.log.info('Removing level %s right margin of: %s', level, mcr)
+            mcr = self.stats[level + "_right"].most_common(1)[0][0]
+            self.log.info("Removing level %s right margin of: %s", level, mcr)
 
         if remove_left or remove_right:
             for elem in elems:
                 lm, rm, style = self.get_margins(elem)
                 if remove_left and lm == mcl:
-                    style.removeProperty('margin-left')
+                    style.removeProperty("margin-left")
                 if remove_right and rm == mcr:
-                    style.removeProperty('margin-right')
+                    style.removeProperty("margin-right")
 
     def find_levels(self):
 
@@ -131,17 +137,17 @@ class RemoveFakeMargins(object):
                 elem = elem.getparent()
             return ans
 
-        paras = XPath('descendant::h:p|descendant::h:div')
+        paras = XPath("descendant::h:p|descendant::h:div")
 
         for item in self.oeb.spine:
-            body = XPath('//h:body')(item.data)
+            body = XPath("//h:body")(item.data)
             if not body:
                 continue
             body = body[0]
 
             for p in paras(body):
                 level = level_of(p, body)
-                level = '%s_%d' % (parse_utils.barename(p.tag), level)
+                level = "%s_%d" % (parse_utils.barename(p.tag), level)
                 if level not in self.levels:
                     self.levels[level] = []
                 self.levels[level].append(p)
@@ -149,12 +155,12 @@ class RemoveFakeMargins(object):
         remove = set()
         for k, v in self.levels.items():
             num = len(v)
-            self.log.debug('Found %d items of level: %s', num, k)
-            level = int(k.split('_')[-1])
-            tag = k.split('_')[0]
-            if tag == 'p' and num < 25:
+            self.log.debug("Found %d items of level: %s", num, k)
+            level = int(k.split("_")[-1])
+            tag = k.split("_")[0]
+            if tag == "p" and num < 25:
                 remove.add(k)
-            if tag == 'div':
+            if tag == "div":
                 if level > 2 and num < 25:
                     remove.add(k)
                 elif level < 3:
@@ -167,7 +173,7 @@ class RemoveFakeMargins(object):
 
         for k in remove:
             self.levels.pop(k)
-            self.log.debug('Ignoring level %s', k)
+            self.log.debug("Ignoring level %s", k)
 
     def analyze_stats(self, stats):
         if not stats:
@@ -177,8 +183,8 @@ class RemoveFakeMargins(object):
             return False
         mc = mc[0]
         most_common, most_common_count = mc
-        if not most_common or most_common == '0':
+        if not most_common or most_common == "0":
             return False
         total = sum(stats.values())
         # True if greater than 95% of elements have the same margin
-        return most_common_count/total > 0.95
+        return most_common_count / total > 0.95

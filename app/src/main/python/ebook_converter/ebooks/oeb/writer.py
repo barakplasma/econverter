@@ -1,25 +1,26 @@
 """
 Directory output OEBBook writer.
 """
+
 import os
 
 from ebook_converter.ebooks.oeb.base import OPF_MIME, xml2str
 from ebook_converter.ebooks.oeb.base import DirContainer, OEBError
 
 
-__all__ = ['OEBWriter']
-__license__ = 'GPL v3'
-__copyright__ = '2008, Marshall T. Vandegrift <llasram@gmail.com>'
+__all__ = ["OEBWriter"]
+__license__ = "GPL v3"
+__copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"
 
 
 class OEBWriter(object):
-    DEFAULT_PROFILE = 'PRS505'
+    DEFAULT_PROFILE = "PRS505"
     """Default renderer profile for content written with this Writer."""
 
     TRANSFORMS = []
     """List of transforms to apply to content written with this Writer."""
 
-    def __init__(self, version='2.0', page_map=False, pretty_print=False):
+    def __init__(self, version="2.0", page_map=False, pretty_print=False):
         self.version = version
         self.page_map = page_map
         self.pretty_print = pretty_print
@@ -29,13 +30,22 @@ class OEBWriter(object):
         """Add any book-writing options to the :class:`Config` object
         :param:`cfg`.
         """
-        oeb = cfg.add_group('oeb', 'OPF/NCX/etc. generation options.')
-        versions = ['1.2', '2.0']
-        oeb('opf_version', ['--opf-version'], default='2.0', choices=versions,
-            help='OPF version to generate. Default is %default.')
-        oeb('adobe_page_map', ['--adobe-page-map'], default=False,
+        oeb = cfg.add_group("oeb", "OPF/NCX/etc. generation options.")
+        versions = ["1.2", "2.0"]
+        oeb(
+            "opf_version",
+            ["--opf-version"],
+            default="2.0",
+            choices=versions,
+            help="OPF version to generate. Default is %default.",
+        )
+        oeb(
+            "adobe_page_map",
+            ["--adobe-page-map"],
+            default=False,
             help='Generate an Adobe "page-map" file if pagination '
-            'information is available.')
+            "information is available.",
+        )
         return cfg
 
     @classmethod
@@ -44,8 +54,7 @@ class OEBWriter(object):
         version = opts.opf_version
         page_map = opts.adobe_page_map
         pretty_print = opts.pretty_print
-        return cls(version=version, page_map=page_map,
-                   pretty_print=pretty_print)
+        return cls(version=version, page_map=page_map, pretty_print=pretty_print)
 
     def __call__(self, oeb, path):
         """
@@ -54,7 +63,7 @@ class OEBWriter(object):
         """
         version = int(self.version[0])
         opfname = None
-        if os.path.splitext(path)[1].lower() == '.opf':
+        if os.path.splitext(path)[1].lower() == ".opf":
             opfname = os.path.basename(path)
             path = os.path.dirname(path)
         if not os.path.isdir(path):

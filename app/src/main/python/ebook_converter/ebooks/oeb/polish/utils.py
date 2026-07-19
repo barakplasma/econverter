@@ -11,27 +11,28 @@ def _upper(string):
 
 
 def guess_type(x):
-    return mimetypes.guess_type(x)[0] or 'application/octet-stream'
+    return mimetypes.guess_type(x)[0] or "application/octet-stream"
 
 
 def setup_css_parser_serialization(tab_width=2):
     import css_parser
+
     prefs = css_parser.ser.prefs
-    prefs.indent = tab_width * ' '
+    prefs.indent = tab_width * " "
     prefs.indentClosingBrace = False
     prefs.omitLastSemicolon = False
 
 
 def actual_case_for_name(container, name):
     from ebook_converter.utils.filenames import samefile
+
     if not container.exists(name):
-        raise ValueError('Cannot get actual case for %s as it does not '
-                         'exist' % name)
-    parts = name.split('/')
-    base = ''
+        raise ValueError("Cannot get actual case for %s as it does not exist" % name)
+    parts = name.split("/")
+    base = ""
     ans = []
     for i, x in enumerate(parts):
-        base = '/'.join(ans + [x])
+        base = "/".join(ans + [x])
         path = container.name_to_abspath(base)
         pdir = os.path.dirname(path)
         candidates = {os.path.join(pdir, q) for q in os.listdir(pdir)}
@@ -43,17 +44,17 @@ def actual_case_for_name(container, name):
                     correctx = os.path.basename(q)
                     break
             else:
-                raise RuntimeError('Something bad happened')
+                raise RuntimeError("Something bad happened")
         ans.append(correctx)
-    return '/'.join(ans)
+    return "/".join(ans)
 
 
 def corrected_case_for_name(container, name):
-    parts = name.split('/')
+    parts = name.split("/")
     ans = []
-    base = ''
+    base = ""
     for i, x in enumerate(parts):
-        base = '/'.join(ans + [x])
+        base = "/".join(ans + [x])
         if container.exists(base):
             correctx = x
         else:
@@ -71,13 +72,12 @@ def corrected_case_for_name(container, name):
             else:
                 return None
         ans.append(correctx)
-    return '/'.join(ans)
+    return "/".join(ans)
 
 
 class PositionFinder(object):
-
     def __init__(self, raw):
-        pat = br'\n' if isinstance(raw, bytes) else r'\n'
+        pat = rb"\n" if isinstance(raw, bytes) else r"\n"
         self.new_lines = tuple(m.start() + 1 for m in re.finditer(pat, raw))
 
     def __call__(self, pos):
@@ -90,8 +90,7 @@ class PositionFinder(object):
 
 
 class CommentFinder(object):
-
-    def __init__(self, raw, pat=r'(?s)/\*.*?\*/'):
+    def __init__(self, raw, pat=r"(?s)/\*.*?\*/"):
         self.starts, self.ends = [], []
         for m in re.finditer(pat, raw):
             start, end = m.span()
@@ -104,79 +103,102 @@ class CommentFinder(object):
         return q >= 0 and self.starts[q] <= offset <= self.ends[q]
 
 
-def link_stylesheets(container, names, sheets, remove=False, mtype='text/css'):
+def link_stylesheets(container, names, sheets, remove=False, mtype="text/css"):
     from ebook_converter.ebooks.oeb.base import XPath, XHTML
+
     changed_names = set()
     snames = set(sheets)
-    lp = XPath('//h:link[@href]')
-    hp = XPath('//h:head')
+    lp = XPath("//h:link[@href]")
+    hp = XPath("//h:head")
     for name in names:
         root = container.parsed(name)
         if remove:
             for link in lp(root):
-                if (link.get('type', mtype) or mtype) == mtype:
+                if (link.get("type", mtype) or mtype) == mtype:
                     container.remove_from_xml(link)
                     changed_names.add(name)
                     container.dirty(name)
-        existing = {container.href_to_name(l.get('href'), name) for l in lp(root) if (l.get('type', mtype) or mtype) == mtype}
+        existing = {
+            container.href_to_name(l.get("href"), name)
+            for l in lp(root)
+            if (l.get("type", mtype) or mtype) == mtype
+        }
         extra = snames - existing
         if extra:
             changed_names.add(name)
             try:
                 parent = hp(root)[0]
             except (TypeError, IndexError):
-                parent = root.makeelement(XHTML('head'))
+                parent = root.makeelement(XHTML("head"))
                 container.insert_into_xml(root, parent, index=0)
             for sheet in sheets:
                 if sheet in extra:
                     container.insert_into_xml(
-                        parent, parent.makeelement(XHTML('link'), rel='stylesheet', type=mtype,
-                                                   href=container.name_to_href(sheet, name)))
+                        parent,
+                        parent.makeelement(
+                            XHTML("link"),
+                            rel="stylesheet",
+                            type=mtype,
+                            href=container.name_to_href(sheet, name),
+                        ),
+                    )
             container.dirty(name)
 
     return changed_names
 
 
 def lead_text(top_elem, num_words=10):
-    ''' Return the leading text contained in top_elem (including descendants)
+    """Return the leading text contained in top_elem (including descendants)
     up to a maximum of num_words words. More efficient than using
     etree.tostring(method='text') as it does not have to serialize the entire
-    sub-tree rooted at top_elem.'''
-    pat = re.compile(r'\s+', flags=re.UNICODE)
+    sub-tree rooted at top_elem."""
+    pat = re.compile(r"\s+", flags=re.UNICODE)
     words = []
 
-    def get_text(x, attr='text'):
+    def get_text(x, attr="text"):
         ans = getattr(x, attr)
         if ans:
             words.extend(filter(None, pat.split(ans)))
 
-    stack = [(top_elem, 'text')]
+    stack = [(top_elem, "text")]
     while stack and len(words) < num_words:
         elem, attr = stack.pop()
         get_text(elem, attr)
-        if attr == 'text':
+        if attr == "text":
             if elem is not top_elem:
-                stack.append((elem, 'tail'))
-            stack.extend(reversed(list((c, 'text') for c in elem.iterchildren('*'))))
-    return ' '.join(words[:num_words])
+                stack.append((elem, "tail"))
+            stack.extend(reversed(list((c, "text") for c in elem.iterchildren("*"))))
+    return " ".join(words[:num_words])
 
 
-def parse_css(data, fname='<string>', is_declaration=False, decode=None, log_level=None, css_preprocessor=None):
+def parse_css(
+    data,
+    fname="<string>",
+    is_declaration=False,
+    decode=None,
+    log_level=None,
+    css_preprocessor=None,
+):
     if log_level is None:
         import logging
+
         log_level = logging.WARNING
     from css_parser import CSSParser, log
     from ebook_converter.ebooks.oeb.base import _css_logger
+
     log.setLevel(log_level)
     log.raiseExceptions = False
-    data = data or ''
+    data = data or ""
     if isinstance(data, bytes):
-        data = data.decode('utf-8') if decode is None else decode(data)
+        data = data.decode("utf-8") if decode is None else decode(data)
     if css_preprocessor is not None:
         data = css_preprocessor(data)
-    parser = CSSParser(loglevel=log_level,
-                        # We dont care about @import rules
-                        fetcher=lambda x: (None, None), log=_css_logger)
+    parser = CSSParser(
+        loglevel=log_level,
+        # We dont care about @import rules
+        fetcher=lambda x: (None, None),
+        log=_css_logger,
+    )
     if is_declaration:
         data = parser.parseStyle(data, validate=False)
     else:
@@ -188,8 +210,7 @@ def handle_entities(text, func):
     return func(entities.replace_entities(text))
 
 
-def apply_func_to_match_groups(match, func=_upper,
-                               handle_entities=handle_entities):
+def apply_func_to_match_groups(match, func=_upper, handle_entities=handle_entities):
     """
     Apply the specified function to individual groups in the match object (the
     result of re.search() or
@@ -211,29 +232,27 @@ def apply_func_to_match_groups(match, func=_upper,
             pos = end
     if not found_groups:
         return handle_entities(match.group(), func)
-    parts.append(match.string[pos:match.end()])
-    return ''.join(parts)
+    parts.append(match.string[pos : match.end()])
+    return "".join(parts)
 
 
-def apply_func_to_html_text(match, func=_upper,
-                            handle_entities=handle_entities):
+def apply_func_to_html_text(match, func=_upper, handle_entities=handle_entities):
     """
     Apply the specified function only to text between HTML tag definitions.
     """
-    parts = re.split(r'(<[^>]+>)', match.group())
-    parts = (x if x.startswith('<') else handle_entities(x, func)
-             for x in parts)
-    return ''.join(parts)
+    parts = re.split(r"(<[^>]+>)", match.group())
+    parts = (x if x.startswith("<") else handle_entities(x, func) for x in parts)
+    return "".join(parts)
 
 
 def extract(elem):
-    ''' Remove an element from the tree, keeping elem.tail '''
+    """Remove an element from the tree, keeping elem.tail"""
     p = elem.getparent()
     if p is not None:
         idx = p.index(elem)
         p.remove(elem)
         if elem.tail:
             if idx > 0:
-                p[idx-1].tail = (p[idx-1].tail or '') + elem.tail
+                p[idx - 1].tail = (p[idx - 1].tail or "") + elem.tail
             else:
-                p.text = (p.text or '') + elem.tail
+                p.text = (p.text or "") + elem.tail

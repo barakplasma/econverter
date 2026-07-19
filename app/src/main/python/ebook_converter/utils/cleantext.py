@@ -3,46 +3,49 @@ import html.entities
 
 
 def ascii_pat(for_binary=False):
-    attr = 'binary' if for_binary else 'text'
+    attr = "binary" if for_binary else "text"
     ans = getattr(ascii_pat, attr, None)
     if ans is None:
         chars = set(range(32)) - {9, 10, 13}
         chars.add(127)
-        pat = '|'.join(map(chr, chars))
+        pat = "|".join(map(chr, chars))
         if for_binary:
-            pat = pat.encode('ascii')
+            pat = pat.encode("ascii")
         ans = re.compile(pat)
         setattr(ascii_pat, attr, ans)
     return ans
 
 
 def clean_ascii_chars(txt, charlist=None):
-    r'''
+    r"""
     Remove ASCII control chars.
     This is all control chars except \t, \n and \r
-    '''
+    """
     is_binary = isinstance(txt, bytes)
-    empty = b'' if is_binary else ''
+    empty = b"" if is_binary else ""
     if not txt:
         return empty
 
     if charlist is None:
         pat = ascii_pat(is_binary)
     else:
-        pat = '|'.join(map(chr, charlist))
+        pat = "|".join(map(chr, charlist))
         if is_binary:
-            pat = pat.encode('utf-8')
+            pat = pat.encode("utf-8")
     return pat.sub(empty, txt)
 
 
 def allowed(x):
     x = ord(x)
-    return ((x != 127 and (31 < x < 0xd7ff or x in (9, 10, 13))) or
-            (0xe000 < x < 0xfffd) or (0x10000 < x < 0x10ffff))
+    return (
+        (x != 127 and (31 < x < 0xD7FF or x in (9, 10, 13)))
+        or (0xE000 < x < 0xFFFD)
+        or (0x10000 < x < 0x10FFFF)
+    )
 
 
 def py_clean_xml_chars(unicode_string):
-    return ''.join(filter(allowed, unicode_string))
+    return "".join(filter(allowed, unicode_string))
 
 
 clean_xml_chars = py_clean_xml_chars
@@ -54,7 +57,8 @@ clean_xml_chars = py_clean_xml_chars
 # @param text The HTML (or XML) source text.
 # @return The plain text, as a Unicode string, if necessary.
 
-def unescape(text, rm=False, rchar=''):
+
+def unescape(text, rm=False, rchar=""):
     def fixup(m, rm=rm, rchar=rchar):
         text = m.group(0)
         if text[:2] == "&#":
@@ -75,4 +79,5 @@ def unescape(text, rm=False, rchar=''):
         if rm:
             return rchar  # replace by char
         return text  # leave as is
+
     return re.sub("&#?\\w+;", fixup, text)

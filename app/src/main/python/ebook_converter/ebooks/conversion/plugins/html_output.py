@@ -4,7 +4,10 @@ import shutil
 
 from lxml import etree
 
-from ebook_converter.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from ebook_converter.customize.conversion import (
+    OutputFormatPlugin,
+    OptionRecommendation,
+)
 from ebook_converter.ebooks.oeb.base import element
 from ebook_converter import polyglot
 from ebook_converter.ptempfile import PersistentTemporaryDirectory
@@ -13,63 +16,69 @@ from ebook_converter.utils import directory
 
 
 def relpath(*args):
-    return os.path.relpath(*args).replace(os.sep, '/')
+    return os.path.relpath(*args).replace(os.sep, "/")
 
 
 class HTMLOutput(OutputFormatPlugin):
-
-    name = 'HTML Output'
-    author = 'Fabian Grassl'
-    file_type = 'html'
-    commit_name = 'html_output'
+    name = "HTML Output"
+    author = "Fabian Grassl"
+    file_type = "html"
+    commit_name = "html_output"
 
     options = {
-        OptionRecommendation(name='template_css',
-            help='CSS file used for the output instead of the default file'),
-
-        OptionRecommendation(name='template_html_index',
-            help='Template used for generation of the HTML index file instead of the default file'),
-
-        OptionRecommendation(name='template_html',
-            help='Template used for the generation of the HTML contents of the book instead of the default file'),
-
-        OptionRecommendation(name='extract_to',
-            help='Extract the contents of the generated ZIP file to the '
-                'specified directory. WARNING: The contents of the directory '
-                'will be deleted.'
+        OptionRecommendation(
+            name="template_css",
+            help="CSS file used for the output instead of the default file",
+        ),
+        OptionRecommendation(
+            name="template_html_index",
+            help="Template used for generation of the HTML index file instead of the default file",
+        ),
+        OptionRecommendation(
+            name="template_html",
+            help="Template used for the generation of the HTML contents of the book instead of the default file",
+        ),
+        OptionRecommendation(
+            name="extract_to",
+            help="Extract the contents of the generated ZIP file to the "
+            "specified directory. WARNING: The contents of the directory "
+            "will be deleted.",
         ),
     }
 
-    recommendations = {('pretty_print', True, OptionRecommendation.HIGH)}
+    recommendations = {("pretty_print", True, OptionRecommendation.HIGH)}
 
     def generate_toc(self, oeb_book, ref_url, output_dir):
-        '''
+        """
         Generate table of contents
-        '''
+        """
 
         with directory.CurrentDir(output_dir):
+
             def build_node(current_node, parent=None):
                 if parent is None:
-                    parent = etree.Element('ul')
+                    parent = etree.Element("ul")
                 elif len(current_node.nodes):
-                    parent = element(parent, ('ul'))
+                    parent = element(parent, ("ul"))
                 for node in current_node.nodes:
-                    point = element(parent, 'li')
-                    href = relpath(os.path.abspath(polyglot
-                                                   .unquote(node.href)),
-                                   os.path.dirname(ref_url))
+                    point = element(parent, "li")
+                    href = relpath(
+                        os.path.abspath(polyglot.unquote(node.href)),
+                        os.path.dirname(ref_url),
+                    )
                     if isinstance(href, bytes):
-                        href = href.decode('utf-8')
-                    link = element(point, 'a', href=clean_xml_chars(href))
+                        href = href.decode("utf-8")
+                    link = element(point, "a", href=clean_xml_chars(href))
                     title = node.title
                     if isinstance(title, bytes):
-                        title = title.decode('utf-8')
+                        title = title.decode("utf-8")
                     if title:
-                        title = re.sub(r'\s+', ' ', title)
+                        title = re.sub(r"\s+", " ", title)
                     link.text = clean_xml_chars(title)
                     build_node(node, point)
                 return parent
-            wrap = etree.Element('div')
+
+            wrap = etree.Element("div")
             wrap.append(build_node(oeb_book.toc))
             return wrap
 
@@ -77,8 +86,9 @@ class HTMLOutput(OutputFormatPlugin):
         from lxml import etree
 
         root = self.generate_toc(oeb_book, ref_url, output_dir)
-        return etree.tostring(root, pretty_print=True, encoding='unicode',
-                xml_declaration=False)
+        return etree.tostring(
+            root, pretty_print=True, encoding="unicode", xml_declaration=False
+        )
 
     def convert(self, oeb_book, output_path, input_plugin, opts, log):
         import importlib.resources
@@ -88,60 +98,74 @@ class HTMLOutput(OutputFormatPlugin):
 
         # read template files
         if opts.template_html_index is not None:
-            with open(opts.template_html_index, 'rb') as f:
+            with open(opts.template_html_index, "rb") as f:
                 template_html_index_data = f.read()
         else:
-            template_html_index_data = (importlib.resources.files('ebook_converter') /
-                      'data/html_export_default_index.tmpl').read_bytes()
+            template_html_index_data = (
+                importlib.resources.files("ebook_converter")
+                / "data/html_export_default_index.tmpl"
+            ).read_bytes()
 
         if opts.template_html is not None:
-            with open(opts.template_html, 'rb') as f:
+            with open(opts.template_html, "rb") as f:
                 template_html_data = f.read()
         else:
-            template_html_data = (importlib.resources.files('ebook_converter') /
-                      'data/html_export_default.tmpl').read_bytes()
+            template_html_data = (
+                importlib.resources.files("ebook_converter")
+                / "data/html_export_default.tmpl"
+            ).read_bytes()
 
         if opts.template_css is not None:
-            with open(opts.template_css, 'rb') as f:
+            with open(opts.template_css, "rb") as f:
                 template_css_data = f.read()
         else:
-            template_css_data = (importlib.resources.files('ebook_converter') /
-                      'data/html_export_default.css').read_bytes()
+            template_css_data = (
+                importlib.resources.files("ebook_converter")
+                / "data/html_export_default.css"
+            ).read_bytes()
 
-        template_html_index_data = template_html_index_data.decode('utf-8')
-        template_html_data = template_html_data.decode('utf-8')
-        template_css_data = template_css_data.decode('utf-8')
+        template_html_index_data = template_html_index_data.decode("utf-8")
+        template_html_data = template_html_data.decode("utf-8")
+        template_css_data = template_css_data.decode("utf-8")
 
-        self.log  = log
+        self.log = log
         self.opts = opts
         meta = oeb_book.metadata
 
         tempdir = os.path.realpath(PersistentTemporaryDirectory())
-        output_file = os.path.join(tempdir,
-                os.path.basename(re.sub(r'\.(zip|html)$', '', output_path)+'.html'))
-        output_dir = re.sub(r'\.html', '', output_file)+'_files'
+        output_file = os.path.join(
+            tempdir,
+            os.path.basename(re.sub(r"\.(zip|html)$", "", output_path) + ".html"),
+        )
+        output_dir = re.sub(r"\.html", "", output_file) + "_files"
 
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        css_path = output_dir+os.sep+'calibreHtmlOutBasicCss.css'
-        with open(css_path, 'wb') as f:
-            f.write(template_css_data.encode('utf-8'))
+        css_path = output_dir + os.sep + "calibreHtmlOutBasicCss.css"
+        with open(css_path, "wb") as f:
+            f.write(template_css_data.encode("utf-8"))
 
-        with open(output_file, 'wb') as f:
+        with open(output_file, "wb") as f:
             html_toc = self.generate_html_toc(oeb_book, output_file, output_dir)
             templite = Templite(template_html_index_data)
             nextLink = oeb_book.spine[0].href
-            nextLink = relpath(output_dir+os.sep+nextLink,
-                               os.path.dirname(output_file))
+            nextLink = relpath(
+                output_dir + os.sep + nextLink, os.path.dirname(output_file)
+            )
             cssLink = relpath(os.path.abspath(css_path), os.path.dirname(output_file))
             tocUrl = relpath(output_file, os.path.dirname(output_file))
-            t = templite.render(has_toc=bool(oeb_book.toc.count()),
-                    toc=html_toc, meta=meta, nextLink=nextLink,
-                    tocUrl=tocUrl, cssLink=cssLink,
-                    firstContentPageLink=nextLink)
+            t = templite.render(
+                has_toc=bool(oeb_book.toc.count()),
+                toc=html_toc,
+                meta=meta,
+                nextLink=nextLink,
+                tocUrl=tocUrl,
+                cssLink=cssLink,
+                firstContentPageLink=nextLink,
+            )
             if isinstance(t, str):
-                t = t.encode('utf-8')
+                t = t.encode("utf-8")
             f.write(t)
 
         with directory.CurrentDir(output_dir):
@@ -151,10 +175,10 @@ class HTMLOutput(OutputFormatPlugin):
                 if not os.path.exists(dir):
                     os.makedirs(dir)
                 if item.spine_position is not None:
-                    with open(path, 'wb') as f:
+                    with open(path, "wb") as f:
                         pass
                 else:
-                    with open(path, 'wb') as f:
+                    with open(path, "wb") as f:
                         f.write(item.bytes_representation)
                     item.unload_data_from_memory(memory=path)
 
@@ -164,28 +188,42 @@ class HTMLOutput(OutputFormatPlugin):
                 root = item.data.getroottree()
 
                 # get & clean HTML <HEAD>-data
-                head = root.xpath('//h:head', namespaces={'h': 'http://www.w3.org/1999/xhtml'})[0]
-                head_content = etree.tostring(head, pretty_print=True, encoding='unicode')
-                head_content = re.sub(r'\<\/?head.*\>', '', head_content)
-                head_content = re.sub(re.compile(r'\<style.*\/style\>', re.M|re.S), '', head_content)
-                head_content = re.sub(r'<(title)([^>]*)/>', r'<\1\2></\1>', head_content)
+                head = root.xpath(
+                    "//h:head", namespaces={"h": "http://www.w3.org/1999/xhtml"}
+                )[0]
+                head_content = etree.tostring(
+                    head, pretty_print=True, encoding="unicode"
+                )
+                head_content = re.sub(r"\<\/?head.*\>", "", head_content)
+                head_content = re.sub(
+                    re.compile(r"\<style.*\/style\>", re.M | re.S), "", head_content
+                )
+                head_content = re.sub(
+                    r"<(title)([^>]*)/>", r"<\1\2></\1>", head_content
+                )
 
                 # get & clean HTML <BODY>-data
-                body = root.xpath('//h:body', namespaces={'h': 'http://www.w3.org/1999/xhtml'})[0]
-                ebook_content = etree.tostring(body, pretty_print=True, encoding='unicode')
-                ebook_content = re.sub(r'\<\/?body.*\>', '', ebook_content)
-                ebook_content = re.sub(r'<(div|a|span)([^>]*)/>', r'<\1\2></\1>', ebook_content)
+                body = root.xpath(
+                    "//h:body", namespaces={"h": "http://www.w3.org/1999/xhtml"}
+                )[0]
+                ebook_content = etree.tostring(
+                    body, pretty_print=True, encoding="unicode"
+                )
+                ebook_content = re.sub(r"\<\/?body.*\>", "", ebook_content)
+                ebook_content = re.sub(
+                    r"<(div|a|span)([^>]*)/>", r"<\1\2></\1>", ebook_content
+                )
 
                 # generate link to next page
-                if item.spine_position+1 < len(oeb_book.spine):
-                    nextLink = oeb_book.spine[item.spine_position+1].href
+                if item.spine_position + 1 < len(oeb_book.spine):
+                    nextLink = oeb_book.spine[item.spine_position + 1].href
                     nextLink = relpath(os.path.abspath(nextLink), dir)
                 else:
                     nextLink = None
 
                 # generate link to previous page
                 if item.spine_position > 0:
-                    prevLink = oeb_book.spine[item.spine_position-1].href
+                    prevLink = oeb_book.spine[item.spine_position - 1].href
                     prevLink = relpath(os.path.abspath(prevLink), dir)
                 else:
                     prevLink = None
@@ -196,17 +234,26 @@ class HTMLOutput(OutputFormatPlugin):
 
                 # render template
                 templite = Templite(template_html_data)
-                toc = lambda: self.generate_html_toc(oeb_book, path, output_dir)
-                t = templite.render(ebookContent=ebook_content,
-                        prevLink=prevLink, nextLink=nextLink,
-                        has_toc=bool(oeb_book.toc.count()), toc=toc,
-                        tocUrl=tocUrl, head_content=head_content,
-                        meta=meta, cssLink=cssLink,
-                        firstContentPageLink=firstContentPageLink)
+
+                def toc():
+                    return self.generate_html_toc(oeb_book, path, output_dir)
+
+                t = templite.render(
+                    ebookContent=ebook_content,
+                    prevLink=prevLink,
+                    nextLink=nextLink,
+                    has_toc=bool(oeb_book.toc.count()),
+                    toc=toc,
+                    tocUrl=tocUrl,
+                    head_content=head_content,
+                    meta=meta,
+                    cssLink=cssLink,
+                    firstContentPageLink=firstContentPageLink,
+                )
 
                 # write html to file
-                with open(path, 'wb') as f:
-                    f.write(t.encode('utf-8'))
+                with open(path, "wb") as f:
+                    f.write(t.encode("utf-8"))
                 item.unload_data_from_memory(memory=path)
 
         zfile = zipfile.ZipFile(output_path, "w")
@@ -218,7 +265,7 @@ class HTMLOutput(OutputFormatPlugin):
                 shutil.rmtree(opts.extract_to)
             os.makedirs(opts.extract_to)
             zfile.extractall(opts.extract_to)
-            self.log.info('Zip file extracted to %s', opts.extract_to)
+            self.log.info("Zip file extracted to %s", opts.extract_to)
 
         zfile.close()
 

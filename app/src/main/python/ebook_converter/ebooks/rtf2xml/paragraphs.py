@@ -10,7 +10,8 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
-import sys, os
+import sys
+import os
 
 from ebook_converter.ebooks.rtf2xml import copy
 from ebook_converter.ptempfile import better_mktemp
@@ -41,13 +42,14 @@ class Paragraphs:
     section. (How about the end of a section or the end of a field-block?)
     """
 
-    def __init__(self,
-            in_file,
-            bug_handler,
-            copy=None,
-            write_empty_para=1,
-            run_level=1,
-            ):
+    def __init__(
+        self,
+        in_file,
+        bug_handler,
+        copy=None,
+        write_empty_para=1,
+        run_level=1,
+    ):
         """
         Required:
             'file'--file to parse
@@ -57,7 +59,7 @@ class Paragraphs:
             directory from which the script is run.)
         Returns:
             nothing
-            """
+        """
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__copy = copy
@@ -69,40 +71,40 @@ class Paragraphs:
         """
         Initiate all values.
         """
-        self.__state = 'before_body'
-        self.__start_marker =  'mi<mk<para-start\n'  # outside para tags
-        self.__start2_marker = 'mi<mk<par-start_\n'  # inside para tags
-        self.__end2_marker =   'mi<mk<par-end___\n'  # inside para tags
-        self.__end_marker =    'mi<mk<para-end__\n'  # outside para tags
+        self.__state = "before_body"
+        self.__start_marker = "mi<mk<para-start\n"  # outside para tags
+        self.__start2_marker = "mi<mk<par-start_\n"  # inside para tags
+        self.__end2_marker = "mi<mk<par-end___\n"  # inside para tags
+        self.__end_marker = "mi<mk<para-end__\n"  # outside para tags
         self.__state_dict = {
-        'before_body'       : self.__before_body_func,
-        'not_paragraph'     : self.__not_paragraph_func,
-        'paragraph'         : self.__paragraph_func,
+            "before_body": self.__before_body_func,
+            "not_paragraph": self.__not_paragraph_func,
+            "paragraph": self.__paragraph_func,
         }
         self.__paragraph_dict = {
-        'cw<pf<par-end___'      : self.__close_para_func,   # end of paragraph
-        'mi<mk<headi_-end'      : self.__close_para_func,   # end of header or footer
-        # 'cw<pf<par-def___'      : self.__close_para_func,   # paragraph definition
-        # 'mi<mk<fld-bk-end'      : self.__close_para_func,   # end of field-block
-        'mi<mk<fldbk-end_'      : self.__close_para_func,   # end of field-block
-        'mi<mk<body-close'      : self.__close_para_func,   # end of body
-        'mi<mk<sect-close'      : self.__close_para_func,   # end of body
-        'mi<mk<sect-start'      : self.__close_para_func,   # start of section
-        'mi<mk<foot___clo'      : self.__close_para_func,   # end of footnote
-        'cw<tb<cell______'      : self.__close_para_func,   # end of cell
-        'mi<mk<par-in-fld'      : self.__close_para_func,   # start of block field
-        'cw<pf<par-def___'      : self.__bogus_para__def_func,   # paragraph definition
+            "cw<pf<par-end___": self.__close_para_func,  # end of paragraph
+            "mi<mk<headi_-end": self.__close_para_func,  # end of header or footer
+            # 'cw<pf<par-def___'      : self.__close_para_func,   # paragraph definition
+            # 'mi<mk<fld-bk-end'      : self.__close_para_func,   # end of field-block
+            "mi<mk<fldbk-end_": self.__close_para_func,  # end of field-block
+            "mi<mk<body-close": self.__close_para_func,  # end of body
+            "mi<mk<sect-close": self.__close_para_func,  # end of body
+            "mi<mk<sect-start": self.__close_para_func,  # start of section
+            "mi<mk<foot___clo": self.__close_para_func,  # end of footnote
+            "cw<tb<cell______": self.__close_para_func,  # end of cell
+            "mi<mk<par-in-fld": self.__close_para_func,  # start of block field
+            "cw<pf<par-def___": self.__bogus_para__def_func,  # paragraph definition
         }
         self.__not_paragraph_dict = {
-        'tx<nu<__________'      : self.__start_para_func,
-        'tx<hx<__________'      : self.__start_para_func,
-        'tx<ut<__________'      : self.__start_para_func,
-        'tx<mc<__________'      : self.__start_para_func,
-        'mi<mk<inline-fld'      : self.__start_para_func,
-        'mi<mk<para-beg__'      : self.__start_para_func,
-        'cw<pf<par-end___'      : self.__empty_para_func,
-        'mi<mk<pict-start'      : self.__start_para_func,
-        'cw<pf<page-break'      : self.__empty_pgbk_func,    # page break
+            "tx<nu<__________": self.__start_para_func,
+            "tx<hx<__________": self.__start_para_func,
+            "tx<ut<__________": self.__start_para_func,
+            "tx<mc<__________": self.__start_para_func,
+            "mi<mk<inline-fld": self.__start_para_func,
+            "mi<mk<para-beg__": self.__start_para_func,
+            "cw<pf<par-end___": self.__empty_para_func,
+            "mi<mk<pict-start": self.__start_para_func,
+            "cw<pf<page-break": self.__empty_pgbk_func,  # page break
         }
 
     def __before_body_func(self, line):
@@ -115,8 +117,8 @@ class Paragraphs:
             This function handles all the lines before the start of the body.
             Once the body starts, the state is switched to 'not_paragraph'
         """
-        if self.__token_info == 'mi<mk<body-open_':
-            self.__state = 'not_paragraph'
+        if self.__token_info == "mi<mk<body-open_":
+            self.__state = "not_paragraph"
         self.__write_obj.write(line)
 
     def __not_paragraph_func(self, line):
@@ -164,11 +166,9 @@ class Paragraphs:
             changes the state to paragraph.
         """
         self.__write_obj.write(self.__start_marker)  # marker for later parsing
-        self.__write_obj.write(
-        'mi<tg<open______<para\n'
-        )
+        self.__write_obj.write("mi<tg<open______<para\n")
         self.__write_obj.write(self.__start2_marker)
-        self.__state = 'paragraph'
+        self.__state = "paragraph"
 
     def __empty_para_func(self, line):
         """
@@ -182,10 +182,8 @@ class Paragraphs:
         """
         if self.__write_empty_para:
             self.__write_obj.write(self.__start_marker)  # marker for later parsing
-            self.__write_obj.write(
-            'mi<tg<empty_____<para\n'
-            )
-            self.__write_obj.write(self.__end_marker)   # marker for later parsing
+            self.__write_obj.write("mi<tg<empty_____<para\n")
+            self.__write_obj.write(self.__end_marker)  # marker for later parsing
 
     def __empty_pgbk_func(self, line):
         """
@@ -196,9 +194,7 @@ class Paragraphs:
         Logic:
             This function writes the empty tags for a page break.
         """
-        self.__write_obj.write(
-        'mi<tg<empty_____<page-break\n'
-        )
+        self.__write_obj.write("mi<tg<empty_____<page-break\n")
 
     def __close_para_func(self, line):
         """
@@ -211,12 +207,10 @@ class Paragraphs:
             changes the state to not_paragraph.
         """
         self.__write_obj.write(self.__end2_marker)  # marker for later parser
-        self.__write_obj.write(
-        'mi<tg<close_____<para\n'
-        )
+        self.__write_obj.write("mi<tg<close_____<para\n")
         self.__write_obj.write(self.__end_marker)  # marker for later parser
         self.__write_obj.write(line)
-        self.__state = 'not_paragraph'
+        self.__state = "not_paragraph"
 
     def __bogus_para__def_func(self, line):
         """
@@ -227,7 +221,7 @@ class Paragraphs:
         Logic:
             if a \\pard occurs in a paragraph, I want to ignore it. (I believe)
         """
-        self.__write_obj.write('mi<mk<bogus-pard\n')
+        self.__write_obj.write("mi<mk<bogus-pard\n")
 
     def make_paragraphs(self):
         """
@@ -250,8 +244,10 @@ class Paragraphs:
                     action = self.__state_dict.get(self.__state)
                     if action is None:
                         try:
-                            sys.stderr.write('no matching state in module paragraphs.py\n')
-                            sys.stderr.write(self.__state + '\n')
+                            sys.stderr.write(
+                                "no matching state in module paragraphs.py\n"
+                            )
+                            sys.stderr.write(self.__state + "\n")
                         except:
                             pass
                     action(line)

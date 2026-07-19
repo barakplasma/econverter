@@ -26,12 +26,14 @@ class TableInfo:
     Logic:
     """
 
-    def __init__(self,
-            in_file,
-            bug_handler,
-            table_data,
-            copy=None,
-            run_level=1,):
+    def __init__(
+        self,
+        in_file,
+        bug_handler,
+        table_data,
+        copy=None,
+        run_level=1,
+    ):
         """
         Required:
             'file'--file to parse
@@ -42,7 +44,7 @@ class TableInfo:
             directory from which the script is run.)
         Returns:
             nothing
-            """
+        """
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__copy = copy
@@ -52,31 +54,30 @@ class TableInfo:
         # self.__write_to = 'table_info.data'
 
     def insert_info(self):
-        """
-        """
+        """ """
         read_obj = open_for_read(self.__file)
         self.__write_obj = open_for_write(self.__write_to)
         line_to_read = 1
         while line_to_read:
             line_to_read = read_obj.readline()
             line = line_to_read
-            if line == 'mi<mk<tabl-start\n':
+            if line == "mi<mk<tabl-start\n":
                 if len(self.__table_data) > 0:
                     table_dict = self.__table_data[0]
-                    self.__write_obj.write('mi<tg<open-att__<table')
+                    self.__write_obj.write("mi<tg<open-att__<table")
                     keys = table_dict.keys()
                     for key in keys:
-                        self.__write_obj.write('<%s>%s' % (key, table_dict[key]))
-                    self.__write_obj.write('\n')
+                        self.__write_obj.write("<%s>%s" % (key, table_dict[key]))
+                    self.__write_obj.write("\n")
                     self.__table_data = self.__table_data[1:]
                 else:
                     # this shouldn't happen!
                     if self.__run_level > 3:
-                        msg = 'Not enough data for each table\n'
+                        msg = "Not enough data for each table\n"
                         raise self.__bug_handler(msg)
-                    self.__write_obj.write('mi<tg<open______<table\n')
-            elif line == 'mi<mk<table-end_\n':
-                self.__write_obj.write('mi<tg<close_____<table\n')
+                    self.__write_obj.write("mi<tg<open______<table\n")
+            elif line == "mi<mk<table-end_\n":
+                self.__write_obj.write("mi<tg<close_____<table\n")
             self.__write_obj.write(line)
         read_obj.close()
         self.__write_obj.close()

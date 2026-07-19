@@ -5,7 +5,6 @@ import dateutil.parser
 
 
 class SafeLocalTimeZone(dateutil.tz.tzlocal):
-
     def _isdst(self, dt):
         # This method in tzlocal raises ValueError if dt is out of range (in
         # older versions of dateutil)
@@ -44,6 +43,7 @@ def parse_iso8601(date_string, assume_utc=False, as_utc=True):
     return dt.astimezone(utc_tz if as_utc else local_tz)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import sys
+
     print(parse_iso8601(sys.argv[-1]))

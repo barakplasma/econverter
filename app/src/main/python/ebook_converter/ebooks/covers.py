@@ -1,10 +1,7 @@
 # from ebook_converter.util import img
-from ebook_converter.constants_old import __appname__, __version__
-from ebook_converter.gui2 import ensure_app, config, load_builtin_fonts, pixmap_to_data
-from ebook_converter.utils.cleantext import clean_ascii_chars, clean_xml_chars
-from ebook_converter.utils.config import JSONConfig
+from ebook_converter.gui2 import pixmap_to_data
 
-#def calibre_cover2(title, author_string='', series_string='', prefs=None, as_qimage=False, logo_path=None):
+# def calibre_cover2(title, author_string='', series_string='', prefs=None, as_qimage=False, logo_path=None):
 #    init_environment()
 #    title, subtitle, footer = '<b>' + escape_formatting(title), '<i>' + escape_formatting(series_string), '<b>' + escape_formatting(author_string)
 #    prefs = prefs or cprefs
@@ -67,13 +64,21 @@ def message_image(text, width=500, height=400, font_size=20):
 
 
 def scale_cover(prefs, scale):
-    for x in ('cover_width', 'cover_height', 'title_font_size', 'subtitle_font_size', 'footer_font_size'):
+    for x in (
+        "cover_width",
+        "cover_height",
+        "title_font_size",
+        "subtitle_font_size",
+        "footer_font_size",
+    ):
         prefs[x] = int(scale * prefs[x])
 
 
-def generate_masthead(title, output_path=None, width=600, height=60, as_qimage=False, font_family=None):
+def generate_masthead(
+    title, output_path=None, width=600, height=60, as_qimage=False, font_family=None
+):
     init_environment()
-    font_family = font_family or cprefs['title_font_family'] or 'Liberation Serif'
+    font_family = font_family or cprefs["title_font_family"] or "Liberation Serif"
     img = QImage(width, height, QImage.Format_ARGB32)
     img.fill(Qt.white)
     p = QPainter(img)
@@ -89,5 +94,5 @@ def generate_masthead(title, output_path=None, width=600, height=60, as_qimage=F
     data = pixmap_to_data(img)
     if output_path is None:
         return data
-    with open(output_path, 'wb') as f:
+    with open(output_path, "wb") as f:
         f.write(data)

@@ -4,20 +4,21 @@ Python version by Stuart Colville http://muffinresearch.co.uk
 Modifications to make it work with non-ascii chars by Kovid Goyal
 License: http://www.opensource.org/licenses/mit-license.php
 """
+
 import re
 
 
-SMALL = 'a|an|and|as|at|but|by|en|for|if|in|of|on|or|the|to|v\\.?|via|vs\\.?'
+SMALL = "a|an|and|as|at|but|by|en|for|if|in|of|on|or|the|to|v\\.?|via|vs\\.?"
 PUNCT = r"""!"#$%&'‘’()*+,\-‒–—―./:;?@[\\\]_`{|}~"""
 
-SMALL_WORDS = re.compile(r'^(%s)$' % SMALL, re.I)
-INLINE_PERIOD = re.compile(r'[a-z][.][a-z]', re.I)
-UC_ELSEWHERE = re.compile(r'[%s]*?[a-zA-Z]+[A-Z]+?' % PUNCT)
+SMALL_WORDS = re.compile(r"^(%s)$" % SMALL, re.I)
+INLINE_PERIOD = re.compile(r"[a-z][.][a-z]", re.I)
+UC_ELSEWHERE = re.compile(r"[%s]*?[a-zA-Z]+[A-Z]+?" % PUNCT)
 CAPFIRST = re.compile(str(r"^[%s]*?(\w)" % PUNCT), flags=re.UNICODE)
-SMALL_FIRST = re.compile(r'^([%s]*)(%s)\b' % (PUNCT, SMALL), re.I | re.U)
-SMALL_LAST = re.compile(r'\b(%s)[%s]?$' % (SMALL, PUNCT), re.I | re.U)
-SMALL_AFTER_NUM = re.compile(r'(\d+\s+)(a|an|the)\b', re.I | re.U)
-SUBPHRASE = re.compile(r'([:.;?!][ ])(%s)' % SMALL)
+SMALL_FIRST = re.compile(r"^([%s]*)(%s)\b" % (PUNCT, SMALL), re.I | re.U)
+SMALL_LAST = re.compile(r"\b(%s)[%s]?$" % (SMALL, PUNCT), re.I | re.U)
+SMALL_AFTER_NUM = re.compile(r"(\d+\s+)(a|an|the)\b", re.I | re.U)
+SUBPHRASE = re.compile(r"([:.;?!][ ])(%s)" % SMALL)
 APOS_SECOND = re.compile(r"^[dol]{1}['‘]{1}[a-z]+$", re.I)
 UC_INITIALS = re.compile(r"^(?:[A-Z]{1}\.{1}|[A-Z]{1}\.{1}[A-Z]{1})+$")
 
@@ -36,7 +37,7 @@ def titlecase(text):
 
     all_caps = text.upper() == text
 
-    pat = re.compile(r'(\s+)')
+    pat = re.compile(r"(\s+)")
     line = []
     for word in pat.split(text):
         if not word:
@@ -64,24 +65,24 @@ def titlecase(text):
             continue
 
         hyphenated = []
-        for item in word.split('-'):
+        for item in word.split("-"):
             hyphenated.append(CAPFIRST.sub(lambda m: m.group(0).upper(), item))
         line.append("-".join(hyphenated))
 
     result = "".join(line)
 
-    result = SMALL_FIRST.sub(lambda m: '%s%s' % (m.group(1),
-                                                 m.group(2).capitalize()),
-                             result)
+    result = SMALL_FIRST.sub(
+        lambda m: "%s%s" % (m.group(1), m.group(2).capitalize()), result
+    )
 
-    result = SMALL_AFTER_NUM.sub(lambda m: '%s%s' % (m.group(1),
-                                                     m.group(2).capitalize()),
-                                 result)
+    result = SMALL_AFTER_NUM.sub(
+        lambda m: "%s%s" % (m.group(1), m.group(2).capitalize()), result
+    )
 
     result = SMALL_LAST.sub(lambda m: m.group(0).capitalize(), result)
 
-    result = SUBPHRASE.sub(lambda m: '%s%s' % (m.group(1),
-                                               m.group(2).capitalize()),
-                           result)
+    result = SUBPHRASE.sub(
+        lambda m: "%s%s" % (m.group(1), m.group(2).capitalize()), result
+    )
 
     return result

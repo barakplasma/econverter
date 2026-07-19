@@ -8,10 +8,20 @@
 !/.gitignore
 !/LICENSE
 !/README.md
+!/AGENTS.md
+!/.rumdl.toml
+!/pyproject.toml
 !/build.gradle.kts
 !/settings.gradle.kts
 !/gradle.properties
 !/gradlew
+
+# docs
+!/docs/**/*.md
+
+# host-side python tests
+!/tests/python/*.py
+!/tests/python/requirements.txt
 
 # gradle wrapper
 !/gradle/wrapper/gradle-wrapper.jar
@@ -26,6 +36,7 @@
 
 # kotlin source
 !/app/src/main/java/**/*.kt
+!/app/src/androidTest/java/**/*.kt
 
 # python source
 !/app/src/main/python/**/*.py
@@ -47,3 +58,4 @@
 
 # github actions
 !/.github/workflows/release.yml
+!/.github/workflows/ci.yml

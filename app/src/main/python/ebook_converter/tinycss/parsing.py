@@ -1,11 +1,11 @@
 """
-    tinycss.parsing
-    ---------------
+tinycss.parsing
+---------------
 
-    Utilities for parsing lists of tokens.
+Utilities for parsing lists of tokens.
 
-    :copyright: (c) 2012 by Simon Sapin.
-    :license: BSD, see LICENSE for more details.
+:copyright: (c) 2012 by Simon Sapin.
+:license: BSD, see LICENSE for more details.
 """
 # TODO: unit tests
 
@@ -26,7 +26,7 @@ def split_on_comma(tokens):
     parts = []
     this_part = []
     for token in tokens:
-        if token.type == 'DELIM' and token.value == ',':
+        if token.type == "DELIM" and token.value == ",":
             parts.append(this_part)
             this_part = []
         else:
@@ -48,12 +48,12 @@ def strip_whitespace(tokens):
 
     """
     for i, token in enumerate(tokens):
-        if token.type != 'S':
+        if token.type != "S":
             break
     else:
         return []  # only whitespace
     tokens = tokens[i:]
-    while tokens and tokens[-1].type == 'S':
+    while tokens and tokens[-1].type == "S":
         tokens.pop()
     return tokens
 
@@ -71,7 +71,7 @@ def remove_whitespace(tokens):
         A new sub-sequence of the list.
 
     """
-    return [token for token in tokens if token.type != 'S']
+    return [token for token in tokens if token.type != "S"]
 
 
 def validate_value(tokens):
@@ -86,10 +86,11 @@ def validate_value(tokens):
     """
     for token in tokens:
         type_ = token.type
-        if type_ == '{':
-            validate_block(token.content, 'property value')
+        if type_ == "{":
+            validate_block(token.content, "property value")
         else:
-            validate_any(token, 'property value')
+            validate_any(token, "property value")
+
 
 def validate_block(tokens, context):
     """
@@ -102,9 +103,9 @@ def validate_block(tokens, context):
     """
     for token in tokens:
         type_ = token.type
-        if type_ == '{':
+        if type_ == "{":
             validate_block(token.content, context)
-        elif type_ not in (';', 'ATKEYWORD'):
+        elif type_ not in (";", "ATKEYWORD"):
             validate_any(token, context)
 
 
@@ -118,18 +119,30 @@ def validate_any(token, context):
 
     """
     type_ = token.type
-    if type_ in ('FUNCTION', '(', '['):
+    if type_ in ("FUNCTION", "(", "["):
         for token in token.content:
             validate_any(token, type_)
-    elif type_ not in ('S', 'IDENT', 'DIMENSION', 'PERCENTAGE', 'NUMBER',
-                       'INTEGER', 'URI', 'DELIM', 'STRING', 'HASH', ':',
-                       'UNICODE-RANGE'):
-        if type_ in ('}', ')', ']'):
-            adjective = 'unmatched'
+    elif type_ not in (
+        "S",
+        "IDENT",
+        "DIMENSION",
+        "PERCENTAGE",
+        "NUMBER",
+        "INTEGER",
+        "URI",
+        "DELIM",
+        "STRING",
+        "HASH",
+        ":",
+        "UNICODE-RANGE",
+    ):
+        if type_ in ("}", ")", "]"):
+            adjective = "unmatched"
         else:
-            adjective = 'unexpected'
-        raise ParseError(token,
-            '{0} {1} token in {2}'.format(adjective, type_, context))
+            adjective = "unexpected"
+        raise ParseError(
+            token, "{0} {1} token in {2}".format(adjective, type_, context)
+        )
 
 
 class ParseError(ValueError):
@@ -153,9 +166,11 @@ class ParseError(ValueError):
         What happend (a string).
 
     """
+
     def __init__(self, subject, reason):
         self.line = subject.line
         self.column = subject.column
         self.reason = reason
         super(ParseError, self).__init__(
-            'Parse error at {0.line}:{0.column}, {0.reason}'.format(self))
+            "Parse error at {0.line}:{0.column}, {0.reason}".format(self)
+        )

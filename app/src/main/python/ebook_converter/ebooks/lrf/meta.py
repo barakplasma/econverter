@@ -28,7 +28,7 @@ QWORD = "<Q"  #: Unsigned long long little endian encoded in 8 bytes
 
 
 class field(object):
-    """ A U{Descriptor<http://www.cafepy.com/article/python_attributes_
+    """A U{Descriptor<http://www.cafepy.com/article/python_attributes_
             and_methods/python_attributes_and_methods.html>},
     that implements access to protocol packets in a human readable way.
     """
@@ -48,16 +48,23 @@ class field(object):
         obj.pack(val, start=self._start, fmt=self._fmt)
 
     def __repr__(self):
-        typ = {DWORD: 'unsigned int', 'QWORD': 'unsigned long long',
-               BYTE: 'unsigned char',
-               WORD: 'unsigned short'}.get(self._fmt, '')
-        return ("An " + typ + " stored in " +
-                str(struct.calcsize(self._fmt)) +
-                " bytes starting at byte " + str(self._start))
+        typ = {
+            DWORD: "unsigned int",
+            "QWORD": "unsigned long long",
+            BYTE: "unsigned char",
+            WORD: "unsigned short",
+        }.get(self._fmt, "")
+        return (
+            "An "
+            + typ
+            + " stored in "
+            + str(struct.calcsize(self._fmt))
+            + " bytes starting at byte "
+            + str(self._start)
+        )
 
 
 class versioned_field(field):
-
     def __init__(self, vfield, version, start=0, fmt=WORD):
         field.__init__(self, start=start, fmt=fmt)
         self.vfield, self.version = vfield, version
@@ -83,7 +90,7 @@ class LRFException(Exception):
 
 
 class fixed_stringfield(object):
-    """ A field storing a variable length string. """
+    """A field storing a variable length string."""
 
     def __init__(self, length=8, start=0):
         """
@@ -95,32 +102,37 @@ class fixed_stringfield(object):
 
     def __get__(self, obj, typ=None):
         length = str(self._length)
-        return obj.unpack(start=self._start, fmt="<"+length+"s")[0]
+        return obj.unpack(start=self._start, fmt="<" + length + "s")[0]
 
     def __set__(self, obj, val):
         if not isinstance(val, (str, bytes)):
             val = str(val)
         if isinstance(val, str):
-            val = val.encode('utf-8')
+            val = val.encode("utf-8")
         if len(val) != self._length:
-            raise LRFException("Trying to set fixed_stringfield with a " +
-                               "string of  incorrect length")
-        obj.pack(val, start=self._start, fmt="<"+str(len(val))+"s")
+            raise LRFException(
+                "Trying to set fixed_stringfield with a "
+                + "string of  incorrect length"
+            )
+        obj.pack(val, start=self._start, fmt="<" + str(len(val)) + "s")
 
     def __repr__(self):
-        return "A string of length " + str(self._length) + \
-                " starting at byte " + str(self._start)
+        return (
+            "A string of length "
+            + str(self._length)
+            + " starting at byte "
+            + str(self._start)
+        )
 
 
 class xml_attr_field(object):
-
-    def __init__(self, tag_name, attr, parent='BookInfo'):
+    def __init__(self, tag_name, attr, parent="BookInfo"):
         self.tag_name = tag_name
         self.parent = parent
         self.attr = attr
 
     def __get__(self, obj, typ=None):
-        """ Return the data in this field or '' if the field is empty """
+        """Return the data in this field or '' if the field is empty"""
         document = obj.info
         elems = document.getElementsByTagName(self.tag_name)
         if len(elems):
@@ -130,7 +142,7 @@ class xml_attr_field(object):
                     elem = candidate
             if elem and elem.hasAttribute(self.attr):
                 return elem.getAttribute(self.attr)
-        return ''
+        return ""
 
     def __set__(self, obj, val):
         if val is None:
@@ -150,7 +162,7 @@ class xml_attr_field(object):
         return "XML Attr Field: " + self.tag_name + " in " + self.parent
 
     def __str__(self):
-        return self.tag_name+'.'+self.attr
+        return self.tag_name + "." + self.attr
 
 
 class xml_field(object):
@@ -168,7 +180,7 @@ class xml_field(object):
         self.parent = parent
 
     def __get__(self, obj, typ=None):
-        """ Return the data in this field or '' if the field is empty """
+        """Return the data in this field or '' if the field is empty"""
         document = obj.info
 
         elems = document.getElementsByTagName(self.tag_name)
@@ -181,11 +193,11 @@ class xml_field(object):
                 elem.normalize()
                 if elem.hasChildNodes():
                     return elem.firstChild.data.strip()
-        return ''
+        return ""
 
     def __set__(self, obj, val):
         if not val:
-            val = ''
+            val = ""
         document = obj.info
 
         def create_elem():
@@ -195,9 +207,9 @@ class xml_field(object):
             return elem
 
         if not val:
-            val = ''
+            val = ""
         if not isinstance(val, str):
-            val = val.decode('utf-8')
+            val = val.decode("utf-8")
 
         elems = document.getElementsByTagName(self.tag_name)
         elem = None
@@ -265,11 +277,11 @@ def get_metadata(stream):
     mi = MetaInformation(lrf.title.strip(), authors)
     mi.author = lrf.author.strip()
     mi.comments = lrf.free_text.strip()
-    mi.category = lrf.category.strip()+', '+lrf.classification.strip()
-    tags = [x.strip() for x in mi.category.split(',') if x.strip()]
+    mi.category = lrf.category.strip() + ", " + lrf.classification.strip()
+    tags = [x.strip() for x in mi.category.split(",") if x.strip()]
     if tags:
         mi.tags = tags
-    if mi.category.strip() == ',':
+    if mi.category.strip() == ",":
         mi.category = None
     mi.publisher = lrf.publisher.strip()
     mi.cover_data = lrf.get_cover()
@@ -287,16 +299,19 @@ def get_metadata(stream):
     except Exception:
         pass
 
-    if not mi.title or 'unknown' in mi.title.lower():
+    if not mi.title or "unknown" in mi.title.lower():
         mi.title = None
     if not mi.authors:
         mi.authors = None
-    if not mi.author or 'unknown' in mi.author.lower():
+    if not mi.author or "unknown" in mi.author.lower():
         mi.author = None
-    if not mi.category or 'unknown' in mi.category.lower():
+    if not mi.category or "unknown" in mi.category.lower():
         mi.category = None
-    if not mi.publisher or 'unknown' in mi.publisher.lower() or \
-            'some publisher' in mi.publisher.lower():
+    if (
+        not mi.publisher
+        or "unknown" in mi.publisher.lower()
+        or "some publisher" in mi.publisher.lower()
+    ):
         mi.publisher = None
 
     return mi
@@ -304,32 +319,34 @@ def get_metadata(stream):
 
 class LRFMetaFile(object):
     """Has properties to read and write all Meta information in a LRF file."""
+
     #: The first 6 bytes of all valid LRF files
-    LRF_HEADER = 'LRF'.encode('utf-16le')
+    LRF_HEADER = "LRF".encode("utf-16le")
 
     lrf_header = fixed_stringfield(length=6, start=0x0)
     version = field(fmt=WORD, start=0x8)
-    xor_key = field(fmt=WORD, start=0xa)
-    root_object_id = field(fmt=DWORD, start=0xc)
+    xor_key = field(fmt=WORD, start=0xA)
+    root_object_id = field(fmt=DWORD, start=0xC)
     number_of_objects = field(fmt=QWORD, start=0x10)
     object_index_offset = field(fmt=QWORD, start=0x18)
     binding = field(fmt=BYTE, start=0x24)
     dpi = field(fmt=WORD, start=0x26)
-    width = field(fmt=WORD, start=0x2a)
-    height = field(fmt=WORD, start=0x2c)
-    color_depth = field(fmt=BYTE, start=0x2e)
+    width = field(fmt=WORD, start=0x2A)
+    height = field(fmt=WORD, start=0x2C)
+    color_depth = field(fmt=BYTE, start=0x2E)
     toc_object_id = field(fmt=DWORD, start=0x44)
     toc_object_offset = field(fmt=DWORD, start=0x48)
-    compressed_info_size = field(fmt=WORD, start=0x4c)
-    thumbnail_type = versioned_field(version, 800, fmt=WORD, start=0x4e)
+    compressed_info_size = field(fmt=WORD, start=0x4C)
+    thumbnail_type = versioned_field(version, 800, fmt=WORD, start=0x4E)
     thumbnail_size = versioned_field(version, 800, fmt=DWORD, start=0x50)
-    uncompressed_info_size = versioned_field(compressed_info_size, 0,
-                                             fmt=DWORD, start=0x54)
+    uncompressed_info_size = versioned_field(
+        compressed_info_size, 0, fmt=DWORD, start=0x54
+    )
 
     title = xml_field("Title", parent="BookInfo")
-    title_reading = xml_attr_field("Title", 'reading', parent="BookInfo")
+    title_reading = xml_attr_field("Title", "reading", parent="BookInfo")
     author = xml_field("Author", parent="BookInfo")
-    author_reading = xml_attr_field("Author", 'reading', parent="BookInfo")
+    author_reading = xml_attr_field("Author", "reading", parent="BookInfo")
     # 16 characters. First two chars should be FB for personal use ebooks.
     book_id = xml_field("BookID", parent="BookInfo")
     publisher = xml_field("Publisher", parent="BookInfo")
@@ -350,6 +367,7 @@ class LRFMetaFile(object):
         Decorator that ensures that function calls leave the pos
         in the underlying file unchanged
         """
+
         @functools.wraps(func)
         def restore_pos(*args, **kwargs):
             obj = args[0]
@@ -359,6 +377,7 @@ class LRFMetaFile(object):
             if obj._file.tell() >= pos:
                 obj._file.seek(pos)
             return res
+
         return restore_pos
 
     def safe_property(func):
@@ -366,6 +385,7 @@ class LRFMetaFile(object):
         Decorator that ensures that read or writing a property leaves
         the position in the underlying file unchanged
         """
+
         def decorator(f):
             def restore_pos(*args, **kwargs):
                 obj = args[0]
@@ -375,11 +395,13 @@ class LRFMetaFile(object):
                 if obj._file.tell() >= pos:
                     obj._file.seek(pos)
                 return res
+
             return restore_pos
+
         locals_ = func()
-        if 'fget' in locals_:
+        if "fget" in locals_:
             locals_["fget"] = decorator(locals_["fget"])
-        if 'fset' in locals_:
+        if "fset" in locals_:
             locals_["fset"] = decorator(locals_["fset"])
         return property(**locals_)
 
@@ -398,25 +420,30 @@ class LRFMetaFile(object):
             try:
                 src = zlib.decompress(self._file.read(size))
                 if len(src) != self.uncompressed_info_size:
-                    raise LRFException("Decompression of document meta info\
-                                        yielded unexpected results")
+                    raise LRFException(
+                        "Decompression of document meta info\
+                                        yielded unexpected results"
+                    )
 
-                src = xml_to_unicode(src, strip_encoding_pats=True,
-                                     resolve_entities=True,
-                                     assume_utf8=True)[0]
+                src = xml_to_unicode(
+                    src,
+                    strip_encoding_pats=True,
+                    resolve_entities=True,
+                    assume_utf8=True,
+                )[0]
                 return minidom.parseString(src)
             except zlib.error:
-                raise LRFException("Unable to decompress document meta "
-                                   "information")
+                raise LRFException("Unable to decompress document meta information")
 
         def fset(self, document):
-            info = document.toxml('utf-8')
+            info = document.toxml("utf-8")
             self.uncompressed_info_size = len(info)
             stream = zlib.compress(info)
             orig_size = self.compressed_info_size
             self.compressed_info_size = len(stream) + 4
-            delta = insert_into_file(self._file, stream, self.info_start,
-                                     self.info_start + orig_size - 4)
+            delta = insert_into_file(
+                self._file, stream, self.info_start, self.info_start + orig_size - 4
+            )
 
             if self.toc_object_offset > 0:
                 self.toc_object_offset += delta
@@ -430,12 +457,13 @@ class LRFMetaFile(object):
         doc = """The position of the thumbnail in the LRF file"""
 
         def fget(self):
-            return self.info_start + self.compressed_info_size-4
+            return self.info_start + self.compressed_info_size - 4
+
         return {"fget": fget, "doc": doc}
 
     @classmethod
     def _detect_thumbnail_type(cls, slice):
-        """ @param slice: The first 16 bytes of the thumbnail """
+        """@param slice: The first 16 bytes of the thumbnail"""
         ttype = 0x14  # GIF
         if "PNG" in slice:
             ttype = 0x12
@@ -461,13 +489,15 @@ class LRFMetaFile(object):
 
         def fset(self, data):
             if self.version <= 800:
-                raise LRFException("Cannot store thumbnails in LRF files "
-                                   "of version <= 800")
+                raise LRFException(
+                    "Cannot store thumbnails in LRF files of version <= 800"
+                )
             slice = data[0:16]
             orig_size = self.thumbnail_size
             self.thumbnail_size = len(data)
-            delta = insert_into_file(self._file, data, self.thumbnail_pos,
-                                     self.thumbnail_pos + orig_size)
+            delta = insert_into_file(
+                self._file, data, self.thumbnail_pos, self.thumbnail_pos + orig_size
+            )
             self.toc_object_offset += delta
             self.object_index_offset += delta
             self.thumbnail_type = self._detect_thumbnail_type(slice)
@@ -476,13 +506,15 @@ class LRFMetaFile(object):
         return {"fget": fget, "fset": fset, "doc": doc}
 
     def __init__(self, file):
-        """ @param file: A file object opened in the r+b mode """
+        """@param file: A file object opened in the r+b mode"""
         file.seek(0, 2)
         self.size = file.tell()
         self._file = file
         if self.lrf_header != LRFMetaFile.LRF_HEADER:
-            raise LRFException(file.name + " has an invalid LRF header. Are "
-                               "you sure it is an LRF file?")
+            raise LRFException(
+                file.name + " has an invalid LRF header. Are "
+                "you sure it is an LRF file?"
+            )
         # Byte at which the compressed meta information starts
         self.info_start = 0x58 if self.version > 800 else 0x53
 
@@ -496,8 +528,8 @@ class LRFMetaFile(object):
         while count > 0:
             raw = self._file.read(8)
             new_offset = struct.unpack(DWORD, raw[4:8])[0] + delta
-            if new_offset >= (2**8)**4 or new_offset < 0x4C:
-                raise LRFException('Invalid LRF file. Could not set metadata.')
+            if new_offset >= (2**8) ** 4 or new_offset < 0x4C:
+                raise LRFException("Invalid LRF file. Could not set metadata.")
             self._file.seek(-4, os.SEEK_CUR)
             self._file.write(struct.pack(DWORD, new_offset))
             self._file.seek(8, os.SEEK_CUR)
@@ -514,7 +546,7 @@ class LRFMetaFile(object):
         """
         end = start + struct.calcsize(fmt)
         self._file.seek(start)
-        ret = struct.unpack(fmt, self._file.read(end-start))
+        ret = struct.unpack(fmt, self._file.read(end - start))
         return ret
 
     @safe
@@ -558,19 +590,19 @@ class LRFMetaFile(object):
         self.thumbnail_type = self._detect_thumbnail_type(slice)
 
     def seek(self, *args):
-        """ See L{file.seek} """
+        """See L{file.seek}"""
         return self._file.seek(*args)
 
     def tell(self):
-        """ See L{file.tell} """
+        """See L{file.tell}"""
         return self._file.tell()
 
     def read(self):
-        """ See L{file.read} """
+        """See L{file.read}"""
         return self._file.read()
 
     def write(self, val):
-        """ See L{file.write} """
+        """See L{file.write}"""
         self._file.write(val)
 
     def _objects(self):
@@ -580,11 +612,12 @@ class LRFMetaFile(object):
             c -= 1
             raw = self._file.read(16)
             pos = self._file.tell()
-            yield struct.unpack('<IIII', raw)[:3]
+            yield struct.unpack("<IIII", raw)[:3]
             self._file.seek(pos)
 
     def get_objects_by_type(self, type):
         from ebook_converter.ebooks.lrf.tags import Tag
+
         objects = []
         for id, offset, size in self._objects():
             self._file.seek(offset)
@@ -597,6 +630,7 @@ class LRFMetaFile(object):
 
     def get_object_by_id(self, tid):
         from ebook_converter.ebooks.lrf.tags import Tag
+
         for id, offset, size in self._objects():
             self._file.seek(offset)
             tag = Tag(self._file)
@@ -611,58 +645,110 @@ class LRFMetaFile(object):
         from ebook_converter.ebooks.lrf.objects import get_object
 
         for id, offset, size in self.get_objects_by_type(0x0C):
-            image = get_object(None, self._file, id, offset, size,
-                               self.xor_key)
+            image = get_object(None, self._file, id, offset, size, self.xor_key)
             id, offset, size = self.get_object_by_id(image.refstream)[:3]
-            image_stream = get_object(None, self._file, id, offset, size,
-                                      self.xor_key)
-            return image_stream.file.rpartition('.')[-1], image_stream.stream
+            image_stream = get_object(None, self._file, id, offset, size, self.xor_key)
+            return image_stream.file.rpartition(".")[-1], image_stream.stream
         return None
 
 
 def option_parser():
     from ebook_converter.utils.config import OptionParser
     from ebook_converter.constants_old import __appname__, __version__
-    parser = OptionParser(usage=('''%prog [options] mybook.lrf
+
+    parser = OptionParser(
+        usage=(
+            """%prog [options] mybook.lrf
 
 
-Show/edit the metadata in an LRF file.\n\n'''),
-                          version=__appname__+' '+__version__,
-                          epilog='Created by Kovid Goyal')
-    parser.add_option("-t", "--title", action="store", type="string",
-                      dest="title", help="Set the book title")
-    parser.add_option('--title-sort', action='store', type='string',
-                      default=None, dest='title_reading',
-                      help='Set sort key for the title')
-    parser.add_option("-a", "--author", action="store", type="string",
-                      dest="author", help="Set the author")
-    parser.add_option('--author-sort', action='store', type='string',
-                      default=None, dest='author_reading',
-                      help='Set sort key for the author')
-    parser.add_option("-c", "--category", action="store", type="string",
-                      dest="category", help="The category this book belongs "
-                      "to. E.g.: History")
-    parser.add_option("--thumbnail", action="store", type="string",
-                      dest="thumbnail", help="Path to a graphic that will be "
-                      "set as this files' thumbnail")
-    parser.add_option("--comment", action="store", type="string",
-                      dest="comment", help="Path to a TXT file containing the "
-                      "comment to be stored in the LRF file.")
-    parser.add_option("--get-thumbnail", action="store_true",
-                      dest="get_thumbnail", default=False,
-                      help="Extract thumbnail from LRF file")
-    parser.add_option('--publisher', default=None, help='Set the publisher')
-    parser.add_option('--classification', default=None,
-                      help='Set the book classification')
-    parser.add_option('--creator', default=None, help='Set the book creator')
-    parser.add_option('--producer', default=None, help='Set the book '
-                      'producer')
-    parser.add_option('--get-cover', action='store_true', default=False,
-                      help='Extract cover from LRF file. Note that the LRF '
-                      'format has no defined cover, so we use some heuristics '
-                      'to guess the cover.')
-    parser.add_option('--bookid', action='store', type='string', default=None,
-                      dest='book_id', help='Set book ID')
+Show/edit the metadata in an LRF file.\n\n"""
+        ),
+        version=__appname__ + " " + __version__,
+        epilog="Created by Kovid Goyal",
+    )
+    parser.add_option(
+        "-t",
+        "--title",
+        action="store",
+        type="string",
+        dest="title",
+        help="Set the book title",
+    )
+    parser.add_option(
+        "--title-sort",
+        action="store",
+        type="string",
+        default=None,
+        dest="title_reading",
+        help="Set sort key for the title",
+    )
+    parser.add_option(
+        "-a",
+        "--author",
+        action="store",
+        type="string",
+        dest="author",
+        help="Set the author",
+    )
+    parser.add_option(
+        "--author-sort",
+        action="store",
+        type="string",
+        default=None,
+        dest="author_reading",
+        help="Set sort key for the author",
+    )
+    parser.add_option(
+        "-c",
+        "--category",
+        action="store",
+        type="string",
+        dest="category",
+        help="The category this book belongs to. E.g.: History",
+    )
+    parser.add_option(
+        "--thumbnail",
+        action="store",
+        type="string",
+        dest="thumbnail",
+        help="Path to a graphic that will be set as this files' thumbnail",
+    )
+    parser.add_option(
+        "--comment",
+        action="store",
+        type="string",
+        dest="comment",
+        help="Path to a TXT file containing the comment to be stored in the LRF file.",
+    )
+    parser.add_option(
+        "--get-thumbnail",
+        action="store_true",
+        dest="get_thumbnail",
+        default=False,
+        help="Extract thumbnail from LRF file",
+    )
+    parser.add_option("--publisher", default=None, help="Set the publisher")
+    parser.add_option(
+        "--classification", default=None, help="Set the book classification"
+    )
+    parser.add_option("--creator", default=None, help="Set the book creator")
+    parser.add_option("--producer", default=None, help="Set the book producer")
+    parser.add_option(
+        "--get-cover",
+        action="store_true",
+        default=False,
+        help="Extract cover from LRF file. Note that the LRF "
+        "format has no defined cover, so we use some heuristics "
+        "to guess the cover.",
+    )
+    parser.add_option(
+        "--bookid",
+        action="store",
+        type="string",
+        default=None,
+        dest="book_id",
+        help="Set book ID",
+    )
     # The SumPage element specifies the number of "View"s (visible pages for
     # the BookSetting element conditions) of the content.
     # Basically, the total pages per the page size, font size, etc. when the
@@ -679,10 +765,10 @@ def set_metadata(stream, mi):
     if mi.title:
         lrf.title = mi.title
     if mi.authors:
-        lrf.author = ', '.join(mi.authors)
+        lrf.author = ", ".join(mi.authors)
     if mi.tags:
         lrf.category = mi.tags[0]
-    if getattr(mi, 'category', False):
+    if getattr(mi, "category", False):
         lrf.category = mi.category
     if mi.comments:
         lrf.free_text = mi.comments
@@ -698,7 +784,7 @@ def main(args=sys.argv):
     if len(args) != 2:
         parser.print_help()
         print()
-        print('No lrf file specified')
+        print("No lrf file specified")
         return 1
     lrf = LRFMetaFile(open(args[1], "r+b"))
 
@@ -728,14 +814,13 @@ def main(args=sys.argv):
         lrf.book_id = options.book_id
     if options.comment:
         path = os.path.expanduser(os.path.expandvars(options.comment))
-        with open(path, 'rb') as f:
-            lrf.free_text = f.read().decode('utf-8', 'replace')
+        with open(path, "rb") as f:
+            lrf.free_text = f.read().decode("utf-8", "replace")
     if options.get_thumbnail:
         t = lrf.thumbnail
         td = "None"
         if t and len(t) > 0:
-            td = (os.path.basename(args[1]) + "_thumbnail." +
-                  lrf.thumbail_extension())
+            td = os.path.basename(args[1]) + "_thumbnail." + lrf.thumbail_extension()
             with open(td, "wb") as f:
                 f.write(t)
 
@@ -743,8 +828,7 @@ def main(args=sys.argv):
     fields.sort()
     for f in fields:
         if "XML" in str(f):
-            print(str(f[1]) + ":",
-                  getattr(lrf, f[0]).encode('utf-8'))
+            print(str(f[1]) + ":", getattr(lrf, f[0]).encode("utf-8"))
     if options.get_thumbnail:
         print("Thumbnail:", td)
     if options.get_cover:
@@ -753,14 +837,13 @@ def main(args=sys.argv):
         except Exception:  # Fails on books created by LRFCreator 1.0
             ext, data = None, None
         if data:
-            cover = (os.path.splitext(os.path.basename(args[1]))[0] +
-                     "_cover." + ext)
-            with open(cover, 'wb') as f:
+            cover = os.path.splitext(os.path.basename(args[1]))[0] + "_cover." + ext
+            with open(cover, "wb") as f:
                 f.write(data)
-            print('Cover:', cover)
+            print("Cover:", cover)
         else:
-            print('Could not find cover in the LRF file')
+            print("Could not find cover in the LRF file")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())
