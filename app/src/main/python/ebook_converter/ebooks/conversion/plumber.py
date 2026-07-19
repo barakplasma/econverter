@@ -928,7 +928,7 @@ OptionRecommendation(name='search_replace',
             self.log.info('Conversion options changed from defaults:')
             for rec in self.changed_options:
                 if rec.option.name not in ('username', 'password'):
-                    self.log.info(' %s', rec.option.name,
+                    self.log.info(' %s: %s', rec.option.name,
                                   repr(rec.recommended_value))
         if self.opts.verbose > 1:
             self.log.debug('Resolved conversion options')

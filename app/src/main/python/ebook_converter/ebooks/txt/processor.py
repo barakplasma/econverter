@@ -56,10 +56,9 @@ def split_txt(txt, epub_split_size_kb=0):
     if epub_split_size_kb > 0:
         if isinstance(txt, str):
             txt = txt.encode('utf-8')
-        length_byte = len(txt)
-        # Calculating the average chunk value for easy splitting as EPUB (+2 as a safe margin)
-        chunk_size = int(length_byte / (int(length_byte / (epub_split_size_kb * 1024)) + 2))
-        # if there are chunks with a superior size then go and break
+        # Only paragraphs longer than the EPUB flow limit need extra split
+        # points; smaller paragraphs must pass through untouched.
+        chunk_size = epub_split_size_kb * 1024
         parts = txt.split(b'\n\n')
         lengths = tuple(map(len, parts))
         if lengths and max(lengths) > chunk_size:
@@ -67,7 +66,7 @@ def split_txt(txt, epub_split_size_kb=0):
                 split_string_separator(line, chunk_size) for line in parts
             ])
     if isinstance(txt, bytes):
-        txt = txt.decode('utf-8')
+        txt = txt.decode('utf-8', 'replace')
 
     return txt
 
@@ -233,16 +232,21 @@ def split_string_separator(txt, size):
     Splits the text by putting \n\n at the point size.
     '''
     if len(txt) > size and size > 2:
-        size -= 2
-        txt = []
-        for part in (txt[i * size: (i + 1) * size] for i in range(0, len(txt), size)):
-            idx = part.rfind(b'.')
-            if idx == -1:
-                part += b'\n\n'
-            else:
-                part = part[:idx + 1] + b'\n\n' + part[idx:]
-            txt.append(part)
-        txt = b''.join(txt)
+        # The original implementation cleared ``txt`` before iterating it,
+        # replacing every oversized paragraph with empty bytes (silent
+        # content loss), and duplicated the split character when it did run.
+        # Prefer breaking after sentence/word boundaries; fall back to a
+        # hard break so no resulting chunk can exceed the limit.
+        parts = []
+        start = 0
+        while len(txt) - start > size:
+            window = txt[start:start + size]
+            idx = max(window.rfind(b'.'), window.rfind(b' '), window.rfind(b'\n'))
+            cut = start + (idx + 1 if idx > size // 2 else size)
+            parts.append(txt[start:cut])
+            start = cut
+        parts.append(txt[start:])
+        txt = b'\n\n'.join(parts)
     return txt
 
 
