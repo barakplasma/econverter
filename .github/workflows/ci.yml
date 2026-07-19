@@ -49,7 +49,7 @@ jobs:
         run: python -m pip install -r tests/python/requirements.txt
 
       - name: Set up uv for ty
-        uses: astral-sh/setup-uv@v8
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
 
       - name: Type-check Python with ty
         run: >-
