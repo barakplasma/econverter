@@ -224,7 +224,8 @@ def validate_html_document(document):
     from lxml import html as lxml_html
 
     root = lxml_html.document_fromstring(document)
-    etree.fromstring(etree.tostring(root, encoding='utf-8', method='xml'))
+    parser = etree.XMLParser(recover=True)
+    etree.fromstring(etree.tostring(root, encoding='utf-8', method='xml'), parser=parser)
 
 
 def resolve_local_resources(document, input_dir, work_dir):
