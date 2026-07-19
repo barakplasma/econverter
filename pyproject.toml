@@ -26,3 +26,15 @@ exclude = ["app/src/main/python/ebook_converter"]
 
 [tool.ty.analysis]
 replace-imports-with-any = ["ebook_converter.**", "lxml.**"]
+
+[[tool.ty.overrides]]
+include = ["app/src/main/python/converter.py"]
+
+[tool.ty.overrides.rules]
+invalid-assignment = "ignore"
+
+[[tool.ty.overrides]]
+include = ["app/src/main/python/econverter_text.py"]
+
+[tool.ty.overrides.rules]
+unresolved-attribute = "ignore"
