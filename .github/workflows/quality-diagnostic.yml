@@ -1,4 +1,4 @@
-name: Quality diagnostic
+name: Apply repository quality fixes
 
 on:
   pull_request:
@@ -8,11 +8,11 @@ permissions:
   contents: write
 
 concurrency:
-  group: quality-diagnostic-${{ github.ref }}
+  group: quality-finalizer-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  diagnose:
+  finalize:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -28,45 +28,92 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install quality tools and project test dependencies
+      - name: Install pinned quality tools and project dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install ruff ty
+          python -m pip install 'ruff==0.15.22' 'ty==0.0.60'
           python -m pip install -r tests/python/requirements.txt
 
-      - name: Apply Ruff fixes and formatting across the repository
+      - name: Configure permanent Ruff and ty checks
         run: |
-          set +e
-          ruff check --fix --unsafe-fixes . > ruff-fix.log 2>&1
-          echo "ruff_fix_status=$?" >> "$GITHUB_ENV"
-          ruff format . > ruff-format.log 2>&1
-          echo "ruff_format_status=$?" >> "$GITHUB_ENV"
-          set -e
-          git diff > quality.patch
+          python - <<'PY'
+          from pathlib import Path
 
-      - name: Check Ruff after autofix
-        continue-on-error: true
+          path = Path('.github/workflows/ci.yml')
+          text = path.read_text(encoding='utf-8')
+
+          replacements = {
+              """  # Runs on every push and pull request in a couple of minutes: structural
+  # Markdown linting plus the host conversion suite that reproduces the
+  # historical lxml/Chaquopy failures without an emulator. This replaces the
+  # old inline \"smoke\" heredoc (which loaded a since-removed module path).
+""": """  # Runs on every push and pull request in a couple of minutes: Ruff
+  # linting and formatting, ty type checking, and the host conversion suite
+  # that reproduces the historical lxml/Chaquopy failures without an emulator.
+""",
+              """      - uses: astral-sh/ruff-action@v4.0.0
+        with:
+          args: \"format --check --diff\"
+
+      - name: Install host conversion dependencies
+        run: python -m pip install -r tests/python/requirements.txt
+""": """      - name: Lint Python with Ruff
+        uses: astral-sh/ruff-action@v4.0.0
+        with:
+          version: \"0.15.22\"
+          args: \"check --output-format=github\"
+          src: \".\"
+
+      - name: Check Python formatting with Ruff
+        uses: astral-sh/ruff-action@v4.0.0
+        with:
+          version: \"0.15.22\"
+          args: \"format --check --diff\"
+          src: \".\"
+
+      - name: Install host conversion dependencies
+        run: python -m pip install -r tests/python/requirements.txt
+
+      - name: Set up uv for ty
+        uses: astral-sh/setup-uv@v8
+
+      - name: Type-check Python with ty
+        run: >-
+          uvx --from ty==0.0.60
+          --with-requirements tests/python/requirements.txt
+          ty check --output-format github .
+""",
+              """            Maintained Markdown in the repository is checked with pinned `rumdl` 0.2.34 using its GFM parser and the structural MD070 nested-fence-collision rule. The host conversion suite (`pytest tests/python`) reproduces the historical lxml failures on every push and pull request. Neither is bundled into the Android APK; they are CI defenses, not a replacement for runtime sanitization.
+""": """            Every Python file in the repository is linted and formatted with pinned Ruff 0.15.22, then type-checked with pinned ty 0.0.60. The host conversion suite (`pytest tests/python`) reproduces the historical lxml failures on every push and pull request. These tools are CI defenses and are not bundled into the Android APK.
+""",
+          }
+
+          for old, new in replacements.items():
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'Expected one CI snippet, found {count}: {old[:80]!r}')
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Apply Ruff fixes and formatting everywhere
         run: |
-          ruff check --output-format=concise . 2>&1 | tee ruff-check.log
-          test "${PIPESTATUS[0]}" -eq 0
+          ruff check --fix --unsafe-fixes .
+          ruff format .
 
-      - name: Check types with ty
-        continue-on-error: true
+      - name: Verify Ruff, ty, and host tests
         run: |
-          ty check --output-format concise . 2>&1 | tee ty-check.log
-          test "${PIPESTATUS[0]}" -eq 0
+          ruff check .
+          ruff format --check .
+          ty check --output-format concise .
+          python -m pytest tests/python
 
-      - name: Run host conversion suite on formatted tree
-        continue-on-error: true
-        run: python -m pytest tests/python 2>&1 | tee pytest.log
-
-      - name: Publish temporary diagnostics to the branch
-        if: always()
+      - name: Commit repository-wide quality fixes
         run: |
-          mkdir -p .quality-diagnostic
-          cp quality.patch ruff-fix.log ruff-format.log ruff-check.log ty-check.log pytest.log .quality-diagnostic/ 2>/dev/null || true
+          rm .github/workflows/quality-diagnostic.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .quality-diagnostic
-          git commit -m 'Publish quality diagnostics [skip ci]'
+          git add -u
+          git commit -m 'Format Python and add Ruff and ty checks'
           git push origin HEAD:${{ github.head_ref }}
