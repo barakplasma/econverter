@@ -4,7 +4,7 @@ from struct import pack
 
 
 def decompress_doc(data):
-    uncompressed = b''
+    uncompressed = b""
     skip_next = 0
 
     for idx, item in enumerate(data):
@@ -24,7 +24,7 @@ def decompress_doc(data):
 
         elif item >= 192:
             # merged space and ascii character
-            uncompressed += b' ' + (item ^ 128).to_bytes(1, sys.byteorder)
+            uncompressed += b" " + (item ^ 128).to_bytes(1, sys.byteorder)
 
         else:
             # compressed data, item contains how many characters should be
@@ -33,9 +33,9 @@ def decompress_doc(data):
             item = (item << 8) + data[idx + 1]
             character_index = (item & 0x3FFF) >> 3
             for _ in range((item & 7) + 3):
-                uncompressed += (uncompressed[len(uncompressed) -
-                                              character_index]
-                                 .to_bytes(1, sys.byteorder))
+                uncompressed += uncompressed[
+                    len(uncompressed) - character_index
+                ].to_bytes(1, sys.byteorder)
 
     return uncompressed
 
@@ -46,10 +46,10 @@ def compress_doc(data):
     ldata = len(data)
     while i < ldata:
         if i > 10 and (ldata - i) > 10:
-            chunk = b''
+            chunk = b""
             match = -1
             for j in range(10, 2, -1):
-                chunk = data[i:i+j]
+                chunk = data[i : i + j]
                 try:
                     match = data.rindex(chunk, 0, i)
                 except ValueError:
@@ -60,17 +60,17 @@ def compress_doc(data):
             if match >= 0:
                 n = len(chunk)
                 m = i - match
-                code = 0x8000 + ((m << 3) & 0x3ff8) + (n - 3)
-                out.write(pack('>H', code))
+                code = 0x8000 + ((m << 3) & 0x3FF8) + (n - 3)
+                out.write(pack(">H", code))
                 i += n
                 continue
-        ch = data[i:i+1]
+        ch = data[i : i + 1]
         och = ord(ch)
         i += 1
-        if ch == b' ' and (i + 1) < ldata:
-            onch = ord(data[i:i+1])
+        if ch == b" " and (i + 1) < ldata:
+            onch = ord(data[i : i + 1])
             if onch >= 0x40 and onch < 0x80:
-                out.write(pack('>B', onch ^ 0x80))
+                out.write(pack(">B", onch ^ 0x80))
                 i += 1
                 continue
         if och == 0 or (och > 8 and och < 0x80):
@@ -79,13 +79,13 @@ def compress_doc(data):
             j = i
             binseq = [ch]
             while j < ldata and len(binseq) < 8:
-                ch = data[j:j+1]
+                ch = data[j : j + 1]
                 och = ord(ch)
                 if och == 0 or (och > 8 and och < 0x80):
                     break
                 binseq.append(ch)
                 j += 1
-            out.write(pack('>B', len(binseq)))
-            out.write(b''.join(binseq))
+            out.write(pack(">B", len(binseq)))
+            out.write(b"".join(binseq))
             i += len(binseq) - 1
     return out.getvalue()

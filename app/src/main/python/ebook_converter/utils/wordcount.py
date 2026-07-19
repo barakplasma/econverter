@@ -20,6 +20,7 @@ Sourced from:
 http://ginstrom.com/scribbles/2008/05/17/counting-words-etc-in-an-html-file-with-python/
 http://ginstrom.com/scribbles/2007/10/06/counting-words-characters-and-asian-characters-with-python/
 """
+
 __version__ = 0.1
 __author__ = "Ryan Ginstrom"
 
@@ -37,7 +38,7 @@ def is_asian(char):
 def filter_jchars(c):
     """Filters Asian characters to spaces"""
     if is_asian(c):
-        return ' '
+        return " "
     return c
 
 
@@ -54,7 +55,7 @@ def nonj_len(word):
     # -> ['spam', 'eggs']
     # The length of which is 2!
     chars = [filter_jchars(c) for c in word]
-    return len(''.join(chars).split())
+    return len("".join(chars).split())
 
 
 def get_wordcount(text):
@@ -65,23 +66,26 @@ def get_wordcount(text):
 
     characters = len(text)
     chars_no_spaces = sum(not x.isspace() for x in text)
-    asian_chars =  sum(is_asian(x) for x in text)
+    asian_chars = sum(is_asian(x) for x in text)
     non_asian_words = nonj_len(text)
     words = non_asian_words + asian_chars
 
-    return dict(characters=characters,
-                chars_no_spaces=chars_no_spaces,
-                asian_chars=asian_chars,
-                non_asian_words=non_asian_words,
-                words=words)
+    return dict(
+        characters=characters,
+        chars_no_spaces=chars_no_spaces,
+        asian_chars=asian_chars,
+        non_asian_words=non_asian_words,
+        words=words,
+    )
 
 
 def dict2obj(dictionary):
     """Transform a dictionary into an object"""
-    class Obj(object):
 
+    class Obj(object):
         def __init__(self, dictionary):
             self.__dict__.update(dictionary)
+
     return Obj(dictionary)
 
 

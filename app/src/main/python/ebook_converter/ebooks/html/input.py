@@ -1,6 +1,7 @@
 """
 Input plugin for HTML or OPF ebooks.
 """
+
 import errno
 import os
 import re
@@ -20,24 +21,23 @@ class Link(object):
     def url_to_local_path(cls, url, base):
         path = url.path
         isabs = False
-        path = urllib.parse.urlunparse(('', '', path, url.params, url.query,
-                                        ''))
+        path = urllib.parse.urlunparse(("", "", path, url.params, url.query, ""))
         path = urllib.parse.unquote(path)
         if isabs or os.path.isabs(path):
             return path
         return os.path.abspath(os.path.join(base, path))
 
     def __init__(self, url, base):
-        '''
+        """
         :param url:  The url this link points to. Must be an unquoted unicode
                      string.
         :param base: The base directory that relative URLs are with respect
                      to. Must be a unicode string.
-        '''
+        """
         assert isinstance(url, str) and isinstance(base, str)
         self.url = url
         self.parsed_url = urllib.parse.urlparse(self.url)
-        self.is_local = self.parsed_url.scheme in ('', 'file')
+        self.is_local = self.parsed_url.scheme in ("", "file")
         self.is_internal = self.is_local and not bool(self.parsed_url.path)
         self.path = None
         self.fragment = urllib.parse.unquote(self.parsed_url.fragment)
@@ -50,14 +50,13 @@ class Link(object):
         return hash(self.path)
 
     def __eq__(self, other):
-        return self.path == getattr(other, 'path', other)
+        return self.path == getattr(other, "path", other)
 
     def __str__(self):
-        return 'Link: %s --> %s' % (self.url, self.path)
+        return "Link: %s --> %s" % (self.url, self.path)
 
 
 class IgnoreFile(Exception):
-
     def __init__(self, msg, err_no):
         Exception.__init__(self, msg)
         self.errno = err_no
@@ -65,24 +64,24 @@ class IgnoreFile(Exception):
 
 
 class HTMLFile(object):
-
-    '''
+    """
     Contains basic information about an HTML file. This
     includes a list of links to other files as well as
     the encoding of each file. Also tries to detect if the file is not a HTML
     file in which case :member:`is_binary` is set to True.
 
     The encoding of the file is available as :member:`encoding`.
-    '''
+    """
 
-    HTML_PAT = re.compile(r'<\s*html', re.IGNORECASE)
-    TITLE_PAT = re.compile('<title>([^<>]+)</title>', re.IGNORECASE)
-    LINK_PAT = re.compile(r'<\s*a\s+.*?href\s*=\s*(?:(?:"(?P<url1>[^"]+)")|'
-                          r'(?:\'(?P<url2>[^\']+)\')|(?P<url3>[^\s>]+))',
-                          re.DOTALL | re.IGNORECASE)
+    HTML_PAT = re.compile(r"<\s*html", re.IGNORECASE)
+    TITLE_PAT = re.compile("<title>([^<>]+)</title>", re.IGNORECASE)
+    LINK_PAT = re.compile(
+        r'<\s*a\s+.*?href\s*=\s*(?:(?:"(?P<url1>[^"]+)")|'
+        r"(?:\'(?P<url2>[^\']+)\')|(?P<url3>[^\s>]+))",
+        re.DOTALL | re.IGNORECASE,
+    )
 
-    def __init__(self, path_to_html_file, level, encoding, verbose,
-                 referrer=None):
+    def __init__(self, path_to_html_file, level, encoding, verbose, referrer=None):
         """
         :param level: The level of this file. Should be 0 for the root file.
         :param encoding: Use `encoding` to decode HTML.
@@ -96,7 +95,7 @@ class HTMLFile(object):
         self.links = []
 
         try:
-            with open(self.path, 'rb') as f:
+            with open(self.path, "rb") as f:
                 src = header = f.read(4096)
                 encoding = detect_xml_encoding(src)[1]
                 if encoding:
@@ -104,21 +103,18 @@ class HTMLFile(object):
                         header = header.decode(encoding)
                     except ValueError:
                         pass
-                self.is_binary = level > 0 and not bool(self
-                                                        .HTML_PAT
-                                                        .search(header))
+                self.is_binary = level > 0 and not bool(self.HTML_PAT.search(header))
                 if not self.is_binary:
                     src += f.read()
         except IOError as err:
-            msg = ('Could not read from file: %s with error: %s' %
-                   (self.path, str(err)))
+            msg = "Could not read from file: %s with error: %s" % (self.path, str(err))
             if level == 0:
                 raise IOError(msg)
             raise IgnoreFile(msg, err.errno)
 
         if not src:
             if level == 0:
-                raise ValueError('The file %s is empty' % self.path)
+                raise ValueError("The file %s is empty" % self.path)
             self.is_binary = True
 
         if not self.is_binary:
@@ -128,21 +124,23 @@ class HTMLFile(object):
             else:
                 self.encoding = encoding
 
-            src = src.decode(encoding, 'replace')
+            src = src.decode(encoding, "replace")
             match = self.TITLE_PAT.search(src)
             self.title = match.group(1) if match is not None else self.title
             self.find_links(src)
 
     def __eq__(self, other):
-        return self.path == getattr(other, 'path', other)
+        return self.path == getattr(other, "path", other)
 
     def __hash__(self):
         return hash(self.path)
 
     def __str__(self):
-        return 'HTMLFile:%d:%s:%s' % (self.level,
-                                      'b' if self.is_binary else 'a',
-                                      self.path)
+        return "HTMLFile:%d:%s:%s" % (
+            self.level,
+            "b" if self.is_binary else "a",
+            self.path,
+        )
 
     def __repr__(self):
         return str(self)
@@ -150,7 +148,7 @@ class HTMLFile(object):
     def find_links(self, src):
         for match in self.LINK_PAT.finditer(src):
             url = None
-            for i in ('url1', 'url2', 'url3'):
+            for i in ("url1", "url2", "url3"):
                 url = match.group(i)
                 if url:
                     break
@@ -188,8 +186,7 @@ def depth_first(root, flat, visited=None):
                         visited.add(hf)
 
 
-def traverse(path_to_html_file, max_levels=sys.maxsize, verbose=0,
-             encoding=None):
+def traverse(path_to_html_file, max_levels=sys.maxsize, verbose=0, encoding=None):
     """
     Recursively traverse all links in the HTML file.
 
@@ -214,10 +211,9 @@ def traverse(path_to_html_file, max_levels=sys.maxsize, verbose=0,
                 if link.path is None or link.path in flat:
                     continue
                 try:
-                    nf = HTMLFile(link.path, level, encoding, verbose,
-                                  referrer=hf)
+                    nf = HTMLFile(link.path, level, encoding, verbose, referrer=hf)
                     if nf.is_binary:
-                        raise IgnoreFile('%s is a binary file' % nf.path, -1)
+                        raise IgnoreFile("%s is a binary file" % nf.path, -1)
                     nl.append(nf)
                     flat.append(nf)
                 except IgnoreFile as err:
@@ -237,17 +233,19 @@ def traverse(path_to_html_file, max_levels=sys.maxsize, verbose=0,
 
 
 def get_filelist(htmlfile, dir, opts, log):
-    '''
+    """
     Build list of files referenced by html file or try to detect and use an
     OPF file instead.
-    '''
-    log.info('Building file list...')
-    filelist = traverse(htmlfile, max_levels=int(opts.max_levels),
-                        verbose=opts.verbose,
-                        encoding=opts
-                        .input_encoding)[0 if opts.breadth_first else 1]
+    """
+    log.info("Building file list...")
+    filelist = traverse(
+        htmlfile,
+        max_levels=int(opts.max_levels),
+        verbose=opts.verbose,
+        encoding=opts.input_encoding,
+    )[0 if opts.breadth_first else 1]
     if opts.verbose:
-        log.debug('\tFound files...')
+        log.debug("\tFound files...")
         for f in filelist:
-            log.debug('\t\t', f)
+            log.debug("\t\t", f)
     return filelist

@@ -10,7 +10,8 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
-import sys, os
+import sys
+import os
 
 from ebook_converter.ebooks.rtf2xml import copy
 from ebook_converter.ptempfile import better_mktemp
@@ -20,14 +21,16 @@ from . import open_for_read, open_for_write
 
 class Pict:
     """Process graphic information"""
-    def __init__(self,
-            in_file,
-            bug_handler,
-            out_file,
-            copy=None,
-            orig_file=None,
-            run_level=1,
-        ):
+
+    def __init__(
+        self,
+        in_file,
+        bug_handler,
+        out_file,
+        copy=None,
+        orig_file=None,
+        run_level=1,
+    ):
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__copy = copy
@@ -45,9 +48,9 @@ class Pict:
 
     def __initiate_pict_dict(self):
         self.__pict_dict = {
-        'ob<nu<open-brack'    :   self.__open_br_func,
-        'cb<nu<clos-brack'    :   self.__close_br_func,
-        'tx<nu<__________'    :   self.__text_func,
+            "ob<nu<open-brack": self.__open_br_func,
+            "cb<nu<clos-brack": self.__close_br_func,
+            "tx<nu<__________": self.__text_func,
         }
 
     def __open_br_func(self, line):
@@ -61,13 +64,15 @@ class Pict:
         return line[17:]
 
     def __make_dir(self):
-        """ Make a directory to put the image data in"""
-        base_name = os.path.basename(getattr(self.__orig_file, 'name',
-            self.__orig_file))
+        """Make a directory to put the image data in"""
+        base_name = os.path.basename(
+            getattr(self.__orig_file, "name", self.__orig_file)
+        )
         base_name = os.path.splitext(base_name)[0]
         if self.__out_file:
-            dir_name = os.path.dirname(getattr(self.__out_file, 'name',
-                self.__out_file))
+            dir_name = os.path.dirname(
+                getattr(self.__out_file, "name", self.__out_file)
+            )
         else:
             dir_name = os.path.dirname(self.__orig_file)
         self.__dir_name = base_name + "_rtf_pict_dir/"
@@ -80,7 +85,7 @@ class Pict:
                 raise self.__bug_handler
         else:
             if self.__run_level > 1:
-                sys.stderr.write('Removing files from old pict directory...\n')
+                sys.stderr.write("Removing files from old pict directory...\n")
             all_files = os.listdir(self.__dir_name)
             for the_file in all_files:
                 the_file = os.path.join(self.__dir_name, the_file)
@@ -89,12 +94,11 @@ class Pict:
                 except OSError:
                     pass
             if self.__run_level > 1:
-                sys.stderr.write('Files removed.\n')
+                sys.stderr.write("Files removed.\n")
 
     def __create_pict_file(self):
-        """Create a file for all the pict data to be written to.
-        """
-        self.__pict_file = os.path.join(self.__dir_name, 'picts.rtf')
+        """Create a file for all the pict data to be written to."""
+        self.__pict_file = os.path.join(self.__dir_name, "picts.rtf")
         self.__write_pic_obj = open_for_write(self.__pict_file, append=True)
 
     def __in_pict_func(self, line):
@@ -119,15 +123,15 @@ class Pict:
         $pict_count =  sprintf("%03d", $pict_count);
         print OUTPUT "dv<xx<em<nu<pict<at<num>$pict_count\n";
         """
-        if self.__token_info == 'cw<gr<picture___':
+        if self.__token_info == "cw<gr<picture___":
             self.__pict_count += 1
             # write_obj.write("mi<tg<em<at<pict<num>%03d\n" % self.__pict_count)
-            write_obj.write('mi<mk<pict-start\n')
-            write_obj.write('mi<tg<empty-att_<pict<num>%03d\n' % self.__pict_count)
-            write_obj.write('mi<mk<pict-end__\n')
+            write_obj.write("mi<mk<pict-start\n")
+            write_obj.write("mi<tg<empty-att_<pict<num>%03d\n" % self.__pict_count)
+            write_obj.write("mi<mk<pict-end__\n")
             if not self.__already_found_pict:
                 self.__create_pict_file()
-                self.__already_found_pict=True
+                self.__already_found_pict = True
                 self.__print_rtf_header()
             self.__in_pict = 1
             self.__pict_br_count = self.__ob_count
@@ -141,7 +145,9 @@ class Pict:
         recognized as an RTF file.
         """
         self.__write_pic_obj.write("{\\rtf1 \n{\\fonttbl\\f0\\null;} \n")
-        self.__write_pic_obj.write("{\\colortbl\\red255\\green255\\blue255;} \n\\pard \n")
+        self.__write_pic_obj.write(
+            "{\\colortbl\\red255\\green255\\blue255;} \n\\pard \n"
+        )
 
     def process_pict(self):
         self.__make_dir()
@@ -149,17 +155,17 @@ class Pict:
             with open_for_write(self.__write_to) as write_obj:
                 for line in read_obj:
                     self.__token_info = line[:16]
-                    if self.__token_info == 'ob<nu<open-brack':
+                    if self.__token_info == "ob<nu<open-brack":
                         self.__ob_count = line[-5:-1]
-                    if self.__token_info == 'cb<nu<clos-brack':
+                    if self.__token_info == "cb<nu<clos-brack":
                         self.__cb_count = line[-5:-1]
                     if not self.__in_pict:
                         to_print = self.__default(line, write_obj)
-                        if to_print :
+                        if to_print:
                             write_obj.write(line)
                     else:
                         to_print = self.__in_pict_func(line)
-                        if to_print :
+                        if to_print:
                             write_obj.write(line)
                 if self.__already_found_pict:
                     self.__write_pic_obj.write("}\n")

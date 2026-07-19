@@ -1,15 +1,16 @@
 """
-    tinycss.page3
-    ------------------
+tinycss.page3
+------------------
 
-    Support for CSS 3 Paged Media syntax:
-    http://dev.w3.org/csswg/css3-page/
+Support for CSS 3 Paged Media syntax:
+http://dev.w3.org/csswg/css3-page/
 
-    Adds support for named page selectors and margin rules.
+Adds support for named page selectors and margin rules.
 
-    :copyright: (c) 2012 by Simon Sapin.
-    :license: BSD, see LICENSE for more details.
+:copyright: (c) 2012 by Simon Sapin.
+:license: BSD, see LICENSE for more details.
 """
+
 from .css21 import CSS21Parser, ParseError
 
 
@@ -51,7 +52,7 @@ class MarginRule(object):
 
     """
 
-    __slots__ = 'at_keyword', 'declarations', 'line', 'column'
+    __slots__ = "at_keyword", "declarations", "line", "column"
 
     def __init__(self, at_keyword, declarations, line, column):
         self.at_keyword = at_keyword
@@ -88,22 +89,22 @@ class CSSPage3Parser(CSS21Parser):
     """
 
     PAGE_MARGIN_AT_KEYWORDS = (
-        '@top-left-corner',
-        '@top-left',
-        '@top-center',
-        '@top-right',
-        '@top-right-corner',
-        '@bottom-left-corner',
-        '@bottom-left',
-        '@bottom-center',
-        '@bottom-right',
-        '@bottom-right-corner',
-        '@left-top',
-        '@left-middle',
-        '@left-bottom',
-        '@right-top',
-        '@right-middle',
-        '@right-bottom',
+        "@top-left-corner",
+        "@top-left",
+        "@top-center",
+        "@top-right",
+        "@top-right-corner",
+        "@bottom-left-corner",
+        "@bottom-left",
+        "@bottom-center",
+        "@bottom-right",
+        "@bottom-right-corner",
+        "@left-top",
+        "@left-middle",
+        "@left-bottom",
+        "@right-top",
+        "@right-middle",
+        "@right-bottom",
     )
 
     def __init__(self):
@@ -112,17 +113,19 @@ class CSSPage3Parser(CSS21Parser):
             self.at_parsers[x] = self.parse_page_margin_rule
 
     def parse_page_margin_rule(self, rule, previous_rules, errors, context):
-        if context != '@page':
-            raise ParseError(rule,
-                '%s rule not allowed in %s' % (rule.at_keyword, context))
+        if context != "@page":
+            raise ParseError(
+                rule, "%s rule not allowed in %s" % (rule.at_keyword, context)
+            )
         if rule.head:
-            raise ParseError(rule.head[0],
-                'unexpected %s token in %s rule header'
-                % (rule.head[0].type, rule.at_keyword))
+            raise ParseError(
+                rule.head[0],
+                "unexpected %s token in %s rule header"
+                % (rule.head[0].type, rule.at_keyword),
+            )
         declarations, body_errors = self.parse_declaration_list(rule.body)
         errors.extend(body_errors)
-        return MarginRule(rule.at_keyword, declarations,
-                            rule.line, rule.column)
+        return MarginRule(rule.at_keyword, declarations, rule.line, rule.column)
 
     def parse_page_selector(self, head):
         """Parse an @page selector.
@@ -138,9 +141,9 @@ class CSSPage3Parser(CSS21Parser):
         """
         if not head:
             return (None, None), (0, 0, 0)
-        if head[0].type == 'IDENT':
+        if head[0].type == "IDENT":
             name = head.pop(0).value
-            while head and head[0].type == 'S':
+            while head and head[0].type == "S":
                 head.pop(0)
             if not head:
                 return (name, None), (1, 0, 0)
@@ -148,13 +151,14 @@ class CSSPage3Parser(CSS21Parser):
         else:
             name = None
             name_specificity = (0,)
-        if (len(head) == 2 and head[0].type == ':'
-                and head[1].type == 'IDENT'):
+        if len(head) == 2 and head[0].type == ":" and head[1].type == "IDENT":
             pseudo_class = head[1].value
             specificity = {
-                'first': (1, 0), 'blank': (1, 0),
-                'left': (0, 1), 'right': (0, 1),
+                "first": (1, 0),
+                "blank": (1, 0),
+                "left": (0, 1),
+                "right": (0, 1),
             }.get(pseudo_class)
             if specificity:
                 return (name, pseudo_class), (name_specificity + specificity)
-        raise ParseError(head[0], 'invalid @page selector')
+        raise ParseError(head[0], "invalid @page selector")

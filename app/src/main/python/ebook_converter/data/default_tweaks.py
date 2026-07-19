@@ -29,7 +29,7 @@
 # expression produces a value for series_index, or if you are reading metadata
 # from books and the import plugin produces a value, than that value will
 # be used irrespective of the setting of the tweak.
-series_index_auto_increment = 'next'
+series_index_auto_increment = "next"
 use_series_auto_increment_tweak_when_importing = False
 
 #: Add separator after completing an author name
@@ -57,13 +57,36 @@ authors_completer_append_separator = False
 # author name cause the automatically generated author sort string to be
 # identical to the author name. This means that the sort for a string like Acme
 # Inc. will be Acme Inc. instead of Inc., Acme
-author_sort_copy_method = 'comma'
-author_name_suffixes = ('Jr', 'Sr', 'Inc', 'Ph.D', 'Phd',
-                        'MD', 'M.D', 'I', 'II', 'III', 'IV',
-                        'Junior', 'Senior')
-author_name_prefixes = ('Mr', 'Mrs', 'Ms', 'Dr', 'Prof')
-author_name_copywords = ('Corporation', 'Company', 'Co.', 'Agency', 'Council',
-        'Committee', 'Inc.', 'Institute', 'Society', 'Club', 'Team')
+author_sort_copy_method = "comma"
+author_name_suffixes = (
+    "Jr",
+    "Sr",
+    "Inc",
+    "Ph.D",
+    "Phd",
+    "MD",
+    "M.D",
+    "I",
+    "II",
+    "III",
+    "IV",
+    "Junior",
+    "Senior",
+)
+author_name_prefixes = ("Mr", "Mrs", "Ms", "Dr", "Prof")
+author_name_copywords = (
+    "Corporation",
+    "Company",
+    "Co.",
+    "Agency",
+    "Council",
+    "Committee",
+    "Inc.",
+    "Institute",
+    "Society",
+    "Club",
+    "Team",
+)
 
 #: Splitting multiple author names
 # By default, calibre splits a string containing multiple author names on
@@ -71,7 +94,7 @@ author_name_copywords = ('Corporation', 'Company', 'Co.', 'Agency', 'Council',
 # by changing the regular expression below. Strings are split on whatever the
 # specified regular expression matches, in addition to ampersands.
 # Default: r'(?i),?\s+(and|with)\s+'
-authors_split_regex = r'(?i),?\s+(and|with)\s+'
+authors_split_regex = r"(?i),?\s+(and|with)\s+"
 
 #: Use author sort in Tag browser
 # Set which author field to display in the tags pane (the list of authors,
@@ -86,7 +109,7 @@ authors_split_regex = r'(?i),?\s+(and|with)\s+'
 # Examples:
 #   categories_use_field_for_author_name = 'author'
 #   categories_use_field_for_author_name = 'author_sort'
-categories_use_field_for_author_name = 'author'
+categories_use_field_for_author_name = "author"
 
 #: Control partitioning of Tag browser
 # When partitioning the tags browser, the format of the subcategory label is
@@ -106,9 +129,13 @@ categories_use_field_for_author_name = 'author'
 # Note that the "r'" in front of the { is necessary if there are backslashes
 # (\ characters) in the template. It doesn't hurt anything to leave it there
 # even if there aren't any backslashes.
-categories_collapsed_name_template = r'{first.sort:shorten(4,,0)} - {last.sort:shorten(4,,0)}'
-categories_collapsed_rating_template = r'{first.avg_rating:4.2f:ifempty(0)} - {last.avg_rating:4.2f:ifempty(0)}'
-categories_collapsed_popularity_template = r'{first.count:d} - {last.count:d}'
+categories_collapsed_name_template = (
+    r"{first.sort:shorten(4,,0)} - {last.sort:shorten(4,,0)}"
+)
+categories_collapsed_rating_template = (
+    r"{first.avg_rating:4.2f:ifempty(0)} - {last.avg_rating:4.2f:ifempty(0)}"
+)
+categories_collapsed_popularity_template = r"{first.count:d} - {last.count:d}"
 
 #: Control order of categories in the Tag browser
 # Change the following dict to change the order that categories are displayed in
@@ -118,7 +145,7 @@ categories_collapsed_popularity_template = r'{first.count:d} - {last.count:d}'
 # using the default order; the one used when the dict is empty.
 # Example: tag_browser_category_order = {'series':1, 'tags':2, '*':3}
 # resulting in the order series, tags, then everything else in default order.
-tag_browser_category_order = {'*':1}
+tag_browser_category_order = {"*": 1}
 
 
 #: Specify columns to sort the booklist by on startup
@@ -160,9 +187,9 @@ sort_columns_at_startup = None
 # publication default if not set: MMM yyyy
 # timestamp default if not set: dd MMM yyyy
 # last_modified_display_format if not set: dd MMM yyyy
-gui_pubdate_display_format = 'MMM yyyy'
-gui_timestamp_display_format = 'dd MMM yyyy'
-gui_last_modified_display_format = 'dd MMM yyyy'
+gui_pubdate_display_format = "MMM yyyy"
+gui_timestamp_display_format = "dd MMM yyyy"
+gui_last_modified_display_format = "dd MMM yyyy"
 
 #: Control sorting of titles and series in the library display
 # Control title and series sorting in the library view. If set to
@@ -178,7 +205,7 @@ gui_last_modified_display_format = 'dd MMM yyyy'
 # without changing anything is sufficient to change the sort. Or you can use
 # the 'Update title sort' action in the Bulk metadata edit dialog to update
 # it for many books at once.
-title_series_sorting = 'library_order'
+title_series_sorting = "library_order"
 
 #: Control formatting of title and series when used in templates
 # Control how title and series names are formatted when saving to disk/sending
@@ -193,7 +220,7 @@ title_series_sorting = 'library_order'
 # strictly_alphabetic, it would remain "The Lord of the Rings". Note that the
 # formatter function raw_field will return the base value for title and
 # series regardless of the setting of this tweak.
-save_template_title_series_sorting = 'library_order'
+save_template_title_series_sorting = "library_order"
 
 #: Set the list of words considered to be "articles" for sort strings
 # Set the list of words that are to be considered 'articles' when computing the
@@ -208,48 +235,146 @@ save_template_title_series_sorting = 'library_order'
 # interface language is used. The setting title_sort_articles is ignored
 # (present only for legacy reasons).
 per_language_title_sort_articles = {
-        # English
-        'eng'  : (r'A\s+', r'The\s+', r'An\s+'),
-        # Esperanto
-        'epo': (r'La\s+', r"L'", 'L´'),
-        # Spanish
-        'spa'  : (r'El\s+', r'La\s+', r'Lo\s+', r'Los\s+', r'Las\s+', r'Un\s+',
-                  r'Una\s+', r'Unos\s+', r'Unas\s+'),
-        # French
-        'fra'  : (r'Le\s+', r'La\s+', r"L'", u'L´', u'L’', r'Les\s+', r'Un\s+', r'Une\s+',
-                  r'Des\s+', r'De\s+La\s+', r'De\s+', r"D'", u'D´', u'L’'),
-        # Italian
-        'ita': ('Lo\\s+', 'Il\\s+', "L'", 'L´', 'La\\s+', 'Gli\\s+',
-                'I\\s+', 'Le\\s+', 'Uno\\s+', 'Un\\s+', 'Una\\s+', "Un'",
-                'Un´', 'Dei\\s+', 'Degli\\s+', 'Delle\\s+', 'Del\\s+',
-                'Della\\s+', 'Dello\\s+', "Dell'", 'Dell´'),
-        # Portuguese
-        'por'  : (r'A\s+', r'O\s+', r'Os\s+', r'As\s+', r'Um\s+', r'Uns\s+',
-                  r'Uma\s+', r'Umas\s+', ),
-        # Romanian
-        'ron'  : (r'Un\s+', r'O\s+', r'Nişte\s+', ),
-        # German
-        'deu'  : (r'Der\s+', r'Die\s+', r'Das\s+', r'Den\s+', r'Ein\s+',
-                  r'Eine\s+', r'Einen\s+', r'Dem\s+', r'Des\s+', r'Einem\s+',
-                  r'Eines\s+'),
-        # Dutch
-        'nld'  : (r'De\s+', r'Het\s+', r'Een\s+', r"'n\s+", r"'s\s+", r'Ene\s+',
-                  r'Ener\s+', r'Enes\s+', r'Den\s+', r'Der\s+', r'Des\s+',
-                  r"'t\s+"),
-        # Swedish
-        'swe'  : (r'En\s+', r'Ett\s+', r'Det\s+', r'Den\s+', r'De\s+', ),
-        # Turkish
-        'tur'  : (r'Bir\s+', ),
-        # Afrikaans
-        'afr'  : (r"'n\s+", r'Die\s+', ),
-        # Greek
-        'ell'  : (r'O\s+', r'I\s+', r'To\s+', r'Ta\s+', r'Tus\s+', r'Tis\s+',
-                  r"'Enas\s+", r"'Mia\s+", r"'Ena\s+", r"'Enan\s+", ),
-        # Hungarian
-        'hun'  : (r'A\s+', r'Az\s+', r'Egy\s+',),
+    # English
+    "eng": (r"A\s+", r"The\s+", r"An\s+"),
+    # Esperanto
+    "epo": (r"La\s+", r"L'", "L´"),
+    # Spanish
+    "spa": (
+        r"El\s+",
+        r"La\s+",
+        r"Lo\s+",
+        r"Los\s+",
+        r"Las\s+",
+        r"Un\s+",
+        r"Una\s+",
+        r"Unos\s+",
+        r"Unas\s+",
+    ),
+    # French
+    "fra": (
+        r"Le\s+",
+        r"La\s+",
+        r"L'",
+        "L´",
+        "L’",
+        r"Les\s+",
+        r"Un\s+",
+        r"Une\s+",
+        r"Des\s+",
+        r"De\s+La\s+",
+        r"De\s+",
+        r"D'",
+        "D´",
+        "L’",
+    ),
+    # Italian
+    "ita": (
+        "Lo\\s+",
+        "Il\\s+",
+        "L'",
+        "L´",
+        "La\\s+",
+        "Gli\\s+",
+        "I\\s+",
+        "Le\\s+",
+        "Uno\\s+",
+        "Un\\s+",
+        "Una\\s+",
+        "Un'",
+        "Un´",
+        "Dei\\s+",
+        "Degli\\s+",
+        "Delle\\s+",
+        "Del\\s+",
+        "Della\\s+",
+        "Dello\\s+",
+        "Dell'",
+        "Dell´",
+    ),
+    # Portuguese
+    "por": (
+        r"A\s+",
+        r"O\s+",
+        r"Os\s+",
+        r"As\s+",
+        r"Um\s+",
+        r"Uns\s+",
+        r"Uma\s+",
+        r"Umas\s+",
+    ),
+    # Romanian
+    "ron": (
+        r"Un\s+",
+        r"O\s+",
+        r"Nişte\s+",
+    ),
+    # German
+    "deu": (
+        r"Der\s+",
+        r"Die\s+",
+        r"Das\s+",
+        r"Den\s+",
+        r"Ein\s+",
+        r"Eine\s+",
+        r"Einen\s+",
+        r"Dem\s+",
+        r"Des\s+",
+        r"Einem\s+",
+        r"Eines\s+",
+    ),
+    # Dutch
+    "nld": (
+        r"De\s+",
+        r"Het\s+",
+        r"Een\s+",
+        r"'n\s+",
+        r"'s\s+",
+        r"Ene\s+",
+        r"Ener\s+",
+        r"Enes\s+",
+        r"Den\s+",
+        r"Der\s+",
+        r"Des\s+",
+        r"'t\s+",
+    ),
+    # Swedish
+    "swe": (
+        r"En\s+",
+        r"Ett\s+",
+        r"Det\s+",
+        r"Den\s+",
+        r"De\s+",
+    ),
+    # Turkish
+    "tur": (r"Bir\s+",),
+    # Afrikaans
+    "afr": (
+        r"'n\s+",
+        r"Die\s+",
+    ),
+    # Greek
+    "ell": (
+        r"O\s+",
+        r"I\s+",
+        r"To\s+",
+        r"Ta\s+",
+        r"Tus\s+",
+        r"Tis\s+",
+        r"'Enas\s+",
+        r"'Mia\s+",
+        r"'Ena\s+",
+        r"'Enan\s+",
+    ),
+    # Hungarian
+    "hun": (
+        r"A\s+",
+        r"Az\s+",
+        r"Egy\s+",
+    ),
 }
 default_language_for_title_sort = None
-title_sort_articles=r'^(A|The|An)\s+'
+title_sort_articles = r"^(A|The|An)\s+"
 
 #: Specify a folder calibre should connect to at startup
 # Specify a folder that calibre should connect to at startup using
@@ -259,7 +384,7 @@ title_sort_articles=r'^(A|The|An)\s+'
 #     auto_connect_to_folder = 'C:/Users/someone/Desktop/testlib'
 # Example for other operating systems:
 #     auto_connect_to_folder = '/home/dropbox/My Dropbox/someone/library'
-auto_connect_to_folder = ''
+auto_connect_to_folder = ""
 
 #: Specify renaming rules for SONY collections
 # Specify renaming rules for sony collections. This tweak is only applicable if
@@ -311,8 +436,8 @@ auto_connect_to_folder = ''
 #  The resulting two tweaks are:
 #    sony_collection_renaming_rules={'series':'Series', 'tags':'Tag'}
 #    sony_collection_name_template='{category:||: }{value}'
-sony_collection_renaming_rules={}
-sony_collection_name_template='{value}{category:| (|)}'
+sony_collection_renaming_rules = {}
+sony_collection_name_template = "{value}{category:| (|)}"
 
 #: Specify how SONY collections are sorted
 # Specify how sony collections are sorted. This tweak is only applicable if
@@ -357,7 +482,7 @@ add_new_book_tags_when_importing_books = False
 # To display all fields except #mycomments:
 #   content_server_will_display = ['*']
 #   content_server_wont_display['#mycomments']
-content_server_will_display = ['*']
+content_server_will_display = ["*"]
 content_server_wont_display = []
 
 #: Set the maximum number of sort 'levels'
@@ -389,8 +514,8 @@ cover_trim_fuzz_value = 10
 # Example: doubleclick_on_library_view = 'do_nothing'
 # You can also control whether the book list scrolls horizontal per column or
 # per pixel. Default is per column.
-doubleclick_on_library_view = 'open_viewer'
-enter_key_behavior = 'do_nothing'
+doubleclick_on_library_view = "open_viewer"
+enter_key_behavior = "do_nothing"
 horizontal_scrolling_per_column = True
 
 #: Language to use when sorting
@@ -403,7 +528,7 @@ horizontal_scrolling_per_column = True
 # Default: locale_for_sorting = '' -- use the language calibre displays in
 # Example: locale_for_sorting = 'fr' -- sort using French rules.
 # Example: locale_for_sorting = 'nb' -- sort using Norwegian rules.
-locale_for_sorting =  ''
+locale_for_sorting = ""
 
 #: Number of columns for custom metadata in the edit metadata dialog
 # Set whether to use one or two columns for custom metadata when editing
@@ -431,7 +556,7 @@ metadata_edit_custom_column_order = []
 # to be public relays here. Any relay host ending with one of the suffixes
 # in the list below will be considered a public email server.
 public_smtp_relay_delay = 301
-public_smtp_relay_host_suffixes = ['gmail.com', 'live.com', 'gmx.com']
+public_smtp_relay_host_suffixes = ["gmail.com", "live.com", "gmx.com"]
 
 #: The maximum width and height for covers saved in the calibre library
 # All covers in the calibre library will be resized, preserving aspect ratio,
@@ -504,7 +629,7 @@ preselect_first_completion = False
 # all candidates that contain the text you have already typed. To do this, set
 # completion_mode to 'contains'. For example, if you type asi it will match both
 # Asimov and Quasimodo, whereas the default behavior would match only Asimov.
-completion_mode = 'prefix'
+completion_mode = "prefix"
 
 #: Recognize numbers inside text when sorting
 # This means that when sorting on text fields like title the text "Book 2"

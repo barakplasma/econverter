@@ -10,17 +10,17 @@ from ebook_converter.utils.cleantext import clean_xml_chars
 from ebook_converter.utils.localization import lang_as_iso639_1
 
 
-OPFVersion = namedtuple('OPFVersion', 'major minor patch')
+OPFVersion = namedtuple("OPFVersion", "major minor patch")
 
 
 def parse_opf_version(raw):
-    parts = (raw or '').split('.')
+    parts = (raw or "").split(".")
     try:
         major = int(parts[0])
     except Exception:
         return OPFVersion(2, 0, 0)
     try:
-        v = list(map(int, raw.split('.')))
+        v = list(map(int, raw.split(".")))
     except Exception:
         v = [major, 0, 0]
     while len(v) < 3:
@@ -31,17 +31,18 @@ def parse_opf_version(raw):
 
 def parse_opf(stream_or_path):
     stream = stream_or_path
-    if not hasattr(stream, 'read'):
-        stream = open(stream, 'rb')
+    if not hasattr(stream, "read"):
+        stream = open(stream, "rb")
     raw = stream.read()
     if not raw:
-        raise ValueError('Empty file: '+getattr(stream, 'name', 'stream'))
-    raw, encoding = xml_to_unicode(raw, strip_encoding_pats=True,
-                                   resolve_entities=True, assume_utf8=True)
-    raw = raw[raw.find('<'):]
+        raise ValueError("Empty file: " + getattr(stream, "name", "stream"))
+    raw, encoding = xml_to_unicode(
+        raw, strip_encoding_pats=True, resolve_entities=True, assume_utf8=True
+    )
+    raw = raw[raw.find("<") :]
     root = etree.fromstring(clean_xml_chars(raw))
     if root is None:
-        raise ValueError('Not an OPF file')
+        raise ValueError("Not an OPF file")
     return root
 
 
@@ -49,11 +50,13 @@ def normalize_languages(opf_languages, mi_languages):
     """
     Preserve original country codes and use 2-letter lang codes where possible
     """
+
     def parse(x):
         try:
             return parse_lang_code(x)
         except ValueError:
             return None
+
     opf_languages = filter(None, map(parse, opf_languages))
     cc_map = {c.langcode: c.countrycode for c in opf_languages}
     mi_languages = filter(None, map(parse, mi_languages))
@@ -63,41 +66,42 @@ def normalize_languages(opf_languages, mi_languages):
         cc = x.countrycode or cc_map.get(lc, None)
         lc = lang_as_iso639_1(lc) or lc
         if cc:
-            lc += '-' + cc
+            lc += "-" + cc
         return lc
+
     return list(map(norm, mi_languages))
 
 
 def ensure_unique(template, existing):
-    b, e = template.rpartition('.')[::2]
+    b, e = template.rpartition(".")[::2]
     if b and e:
-        e = '.' + e
+        e = "." + e
     else:
-        b, e = template, ''
+        b, e = template, ""
     q = template
     c = 0
     while q in existing:
         c += 1
-        q = '%s-%d%s' % (b, c, e)
+        q = "%s-%d%s" % (b, c, e)
     return q
 
 
 def create_manifest_item(root, href_template, id_template, media_type=None):
-    all_ids = frozenset(root.xpath('//*/@id'))
-    all_hrefs = frozenset(root.xpath('//*/@href'))
+    all_ids = frozenset(root.xpath("//*/@id"))
+    all_hrefs = frozenset(root.xpath("//*/@href"))
     href = ensure_unique(href_template, all_hrefs)
     item_id = ensure_unique(id_template, all_ids)
-    manifest = root.find(base.tag('opf', 'manifest'))
+    manifest = root.find(base.tag("opf", "manifest"))
     if manifest is not None:
-        i = manifest.makeelement(base.tag('opf', 'item'))
-        i.set('href', href), i.set('id', item_id)
-        i.set('media-type', media_type or guess_type(href_template))
+        i = manifest.makeelement(base.tag("opf", "item"))
+        i.set("href", href), i.set("id", item_id)
+        i.set("media-type", media_type or guess_type(href_template))
         manifest.append(i)
         return i
 
 
 def pretty_print_opf(root):
-    from ebook_converter.ebooks.oeb.polish.pretty import pretty_opf, \
-            pretty_xml_tree
+    from ebook_converter.ebooks.oeb.polish.pretty import pretty_opf, pretty_xml_tree
+
     pretty_opf(root)
     pretty_xml_tree(root)

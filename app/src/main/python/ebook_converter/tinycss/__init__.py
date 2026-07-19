@@ -1,15 +1,16 @@
 # coding: utf8
 """
-    tinycss
-    -------
+tinycss
+-------
 
-    A CSS parser, and nothing else.
+A CSS parser, and nothing else.
 
-    :copyright: (c) 2012 by Simon Sapin.
-    :license: BSD, see LICENSE for more details.
+:copyright: (c) 2012 by Simon Sapin.
+:license: BSD, see LICENSE for more details.
 """
 
 from .version import VERSION
+
 __version__ = VERSION
 
 from ebook_converter.tinycss.css21 import CSS21Parser
@@ -19,9 +20,9 @@ from ebook_converter.tinycss.media3 import CSSMedia3Parser
 
 
 PARSER_MODULES = {
-    'page3': CSSPage3Parser,
-    'fonts3': CSSFonts3Parser,
-    'media3': CSSMedia3Parser,
+    "page3": CSSPage3Parser,
+    "fonts3": CSSFonts3Parser,
+    "media3": CSSMedia3Parser,
 }
 
 
@@ -40,13 +41,13 @@ def make_parser(*features, **kwargs):
     """
     if features:
         bases = tuple(PARSER_MODULES.get(f, f) for f in features)
-        parser_class = type('CustomCSSParser', bases + (CSS21Parser,), {})
+        parser_class = type("CustomCSSParser", bases + (CSS21Parser,), {})
     else:
         parser_class = CSS21Parser
     return parser_class(**kwargs)
 
 
 def make_full_parser(**kwargs):
-    ''' A parser that parses all supported CSS 3 modules in addition to CSS 2.1 '''
+    """A parser that parses all supported CSS 3 modules in addition to CSS 2.1"""
     features = tuple(PARSER_MODULES)
     return make_parser(*features, **kwargs)

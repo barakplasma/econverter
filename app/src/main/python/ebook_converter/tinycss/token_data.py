@@ -1,12 +1,13 @@
 """
-    tinycss.token_data
-    ------------------
+tinycss.token_data
+------------------
 
-    Shared data for both implementations (Cython and Python) of the tokenizer.
+Shared data for both implementations (Cython and Python) of the tokenizer.
 
-    :copyright: (c) 2012 by Simon Sapin.
-    :license: BSD, see LICENSE for more details.
+:copyright: (c) 2012 by Simon Sapin.
+:license: BSD, see LICENSE for more details.
 """
+
 import re
 import sys
 import operator
@@ -34,7 +35,7 @@ import string
 # and make the sign part as of the 'num' macro. The above CSS will be invalid.
 # See discussion:
 # http://lists.w3.org/Archives/Public/www-style/2011Oct/0028.html
-MACROS = r'''
+MACROS = r"""
     nl	\n|\r\n|\r|\f
     w	[ \t\r\n\f]*
     nonascii	[^\0-\237]
@@ -59,7 +60,7 @@ MACROS = r'''
     baduri2	url\({w}{string}{w}
     baduri3	url\({w}{badstring}
     baduri	{baduri1}|{baduri2}|{baduri3}
-'''.replace(r'\0', '\0').replace(r'\237', '\237')
+""".replace(r"\0", "\0").replace(r"\237", "\237")
 
 # Removed these tokens. Instead, they’re tokenized as two DELIM each.
 #    INCLUDES	~=
@@ -70,7 +71,7 @@ MACROS = r'''
 # Re-ordered so that the longest match is always the first.
 # For example, "url('foo')" matches URI, BAD_URI, FUNCTION and IDENT,
 # but URI would always be a longer match than the others.
-TOKENS = r'''
+TOKENS = r"""
     S	[ \t\r\n\f]+
 
     URI	url\({w}({string}|([!#$%&*-\[\]-~]|{nonascii}|{escape})*){w}\)
@@ -102,7 +103,7 @@ TOKENS = r'''
     ]	\]
     CDO	<!--
     CDC	-->
-'''
+"""
 
 
 # Strings with {macro} expanded
@@ -132,9 +133,8 @@ def _init():
     COMPILED_MACROS.clear()
     for line in MACROS.splitlines():
         if line.strip():
-            name, value = line.split('\t')
-            COMPILED_MACROS[name.strip()] = '(?:%s)' \
-                % value.format(**COMPILED_MACROS)
+            name, value = line.split("\t")
+            COMPILED_MACROS[name.strip()] = "(?:%s)" % value.format(**COMPILED_MACROS)
 
     COMPILED_TOKEN_REGEXPS[:] = (
         (
@@ -143,12 +143,12 @@ def _init():
                 value.format(**COMPILED_MACROS),
                 # Case-insensitive when matching eg. uRL(foo)
                 # but preserve the case in extracted groups
-                re.I
-            ).match
+                re.I,
+            ).match,
         )
         for line in TOKENS.splitlines()
         if line.strip()
-        for name, value in [line.split('\t')]
+        for name, value in [line.split("\t")]
     )
 
     COMPILED_TOKEN_INDEXES.clear()
@@ -157,21 +157,21 @@ def _init():
 
     dispatch = [[] for i in range(161)]
     for chars, names in [
-        (' \t\r\n\f', ['S']),
-        ('uU', ['URI', 'BAD_URI', 'UNICODE-RANGE']),
+        (" \t\r\n\f", ["S"]),
+        ("uU", ["URI", "BAD_URI", "UNICODE-RANGE"]),
         # \ is an escape outside of another token
-        (string.ascii_letters + '\\_-' + unichr(160), ['FUNCTION', 'IDENT']),
-        (string.digits + '.+-', ['DIMENSION', 'PERCENTAGE', 'NUMBER']),
-        ('@', ['ATKEYWORD']),
-        ('#', ['HASH']),
-        ('\'"', ['STRING', 'BAD_STRING']),
-        ('/', ['COMMENT', 'BAD_COMMENT']),
-        ('<', ['CDO']),
-        ('-', ['CDC']),
+        (string.ascii_letters + "\\_-" + unichr(160), ["FUNCTION", "IDENT"]),
+        (string.digits + ".+-", ["DIMENSION", "PERCENTAGE", "NUMBER"]),
+        ("@", ["ATKEYWORD"]),
+        ("#", ["HASH"]),
+        ("'\"", ["STRING", "BAD_STRING"]),
+        ("/", ["COMMENT", "BAD_COMMENT"]),
+        ("<", ["CDO"]),
+        ("-", ["CDC"]),
     ]:
         for char in chars:
             dispatch[ord(char)].extend(names)
-    for char in ':;{}()[]':
+    for char in ":;{}()[]":
         dispatch[ord(char)] = [char]
 
     TOKEN_DISPATCH[:] = (
@@ -183,6 +183,7 @@ def _init():
         for names in dispatch
     )
 
+
 _init()
 
 
@@ -191,22 +192,26 @@ def _unicode_replace(match, int=int, unichr=unichr, maxunicode=sys.maxunicode):
     if codepoint <= maxunicode:
         return unichr(codepoint)
     else:
-        return '\N{REPLACEMENT CHARACTER}'  # U+FFFD
+        return "\N{REPLACEMENT CHARACTER}"  # U+FFFD
+
 
 UNICODE_UNESCAPE = functools.partial(
-    re.compile(COMPILED_MACROS['unicode'], re.I).sub,
-    _unicode_replace)
+    re.compile(COMPILED_MACROS["unicode"], re.I).sub, _unicode_replace
+)
 
 NEWLINE_UNESCAPE = functools.partial(
-    re.compile(r'()\\' + COMPILED_MACROS['nl']).sub,
-    '')
+    re.compile(r"()\\" + COMPILED_MACROS["nl"]).sub, ""
+)
 
 SIMPLE_UNESCAPE = functools.partial(
-    re.compile(r'\\(%s)' % COMPILED_MACROS['simple_escape'] , re.I).sub,
+    re.compile(r"\\(%s)" % COMPILED_MACROS["simple_escape"], re.I).sub,
     # Same as r'\1', but faster on CPython
-    operator.methodcaller('group', 1))
+    operator.methodcaller("group", 1),
+)
 
-FIND_NEWLINES = lambda x : list(re.compile(COMPILED_MACROS['nl']).finditer(x))
+
+def FIND_NEWLINES(x):
+    return list(re.compile(COMPILED_MACROS["nl"]).finditer(x))
 
 
 class Token(object):
@@ -303,8 +308,9 @@ class Token(object):
         The column number (inside a source line) of the start of this token.
 
     """
+
     is_container = False
-    __slots__ = 'type', '_as_css', 'value', 'unit', 'line', 'column'
+    __slots__ = "type", "_as_css", "value", "unit", "line", "column"
 
     def __init__(self, type_, css_value, value, unit, line, column):
         self.type = type_
@@ -322,8 +328,9 @@ class Token(object):
         return self._as_css
 
     def __repr__(self):
-        return ('<Token {0.type} at {0.line}:{0.column} {0.value!r}{1}>'
-                .format(self, self.unit or ''))
+        return "<Token {0.type} at {0.line}:{0.column} {0.value!r}{1}>".format(
+            self, self.unit or ""
+        )
 
 
 class ContainerToken(object):
@@ -359,9 +366,10 @@ class ContainerToken(object):
         The column number (inside a source line) of the start of this token.
 
     """
+
     is_container = True
     unit = None
-    __slots__ = 'type', '_css_start', '_css_end', 'content', 'line', 'column'
+    __slots__ = "type", "_css_start", "_css_end", "content", "line", "column"
 
     def __init__(self, type_, css_start, css_end, content, line, column):
         self.type = type_
@@ -379,12 +387,12 @@ class ContainerToken(object):
         parts = [self._css_start]
         parts.extend(token.as_css() for token in self.content)
         parts.append(self._css_end)
-        return ''.join(parts)
+        return "".join(parts)
 
-    format_string = '<ContainerToken {0.type} at {0.line}:{0.column}>'
+    format_string = "<ContainerToken {0.type} at {0.line}:{0.column}>"
 
     def __repr__(self):
-        return (self.format_string + ' {0.content}').format(self)
+        return (self.format_string + " {0.content}").format(self)
 
 
 class FunctionToken(ContainerToken):
@@ -396,17 +404,17 @@ class FunctionToken(ContainerToken):
         The unescaped name of the function, with the ``(`` marker removed.
 
     """
-    __slots__ = 'function_name',
 
-    def __init__(self, type_, css_start, css_end, function_name, content,
-                 line, column):
+    __slots__ = ("function_name",)
+
+    def __init__(self, type_, css_start, css_end, function_name, content, line, column):
         super(FunctionToken, self).__init__(
-            type_, css_start, css_end, content, line, column)
+            type_, css_start, css_end, content, line, column
+        )
         # Remove the ( marker:
         self.function_name = function_name[:-1]
 
-    format_string = ('<FunctionToken {0.function_name}() at '
-                     '{0.line}:{0.column}>')
+    format_string = "<FunctionToken {0.function_name}() at {0.line}:{0.column}>"
 
 
 class TokenList(list):
@@ -419,6 +427,7 @@ class TokenList(list):
     additional API:
 
     """
+
     @property
     def line(self):
         """The line number in the CSS source of the first token."""
@@ -434,13 +443,24 @@ class TokenList(list):
         Return as an Unicode string the CSS representation of the tokens,
         as parsed in the source.
         """
-        return ''.join(token.as_css() for token in self)
+        return "".join(token.as_css() for token in self)
+
 
 def load_c_tokenizer():
     from calibre.constants import plugins
-    tokenizer, err = plugins['tokenizer']
+
+    tokenizer, err = plugins["tokenizer"]
     if err:
-        raise RuntimeError('Failed to load module tokenizer: %s' % err)
-    tokens = list(':;(){}[]') + ['DELIM', 'INTEGER', 'STRING']
-    tokenizer.init(COMPILED_TOKEN_REGEXPS, UNICODE_UNESCAPE, NEWLINE_UNESCAPE, SIMPLE_UNESCAPE, FIND_NEWLINES, TOKEN_DISPATCH, COMPILED_TOKEN_INDEXES, *tokens)
+        raise RuntimeError("Failed to load module tokenizer: %s" % err)
+    tokens = list(":;(){}[]") + ["DELIM", "INTEGER", "STRING"]
+    tokenizer.init(
+        COMPILED_TOKEN_REGEXPS,
+        UNICODE_UNESCAPE,
+        NEWLINE_UNESCAPE,
+        SIMPLE_UNESCAPE,
+        FIND_NEWLINES,
+        TOKEN_DISPATCH,
+        COMPILED_TOKEN_INDEXES,
+        *tokens,
+    )
     return tokenizer

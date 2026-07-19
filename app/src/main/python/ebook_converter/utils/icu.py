@@ -4,14 +4,16 @@ import sys
 from ebook_converter.utils import config_base
 
 
-is_narrow_build = sys.maxunicode < 0x10ffff
-_locale = _collator = _primary_collator = _sort_collator = _numeric_collator = _case_sensitive_collator = None
+is_narrow_build = sys.maxunicode < 0x10FFFF
+_locale = _collator = _primary_collator = _sort_collator = _numeric_collator = (
+    _case_sensitive_collator
+) = None
 
 _cmap = {}
 
 _icu, err = 1, None  # plugins['icu']
 if _icu is None:
-    raise RuntimeError('Failed to load icu with error: %s' % err)
+    raise RuntimeError("Failed to load icu with error: %s" % err)
 del err
 
 
@@ -20,20 +22,24 @@ def collator():
     if _collator is None:
         if _locale is None:
             from ebook_converter.utils.localization import get_lang
-            if config_base.tweaks['locale_for_sorting']:
-                _locale = config_base.tweaks['locale_for_sorting']
+
+            if config_base.tweaks["locale_for_sorting"]:
+                _locale = config_base.tweaks["locale_for_sorting"]
             else:
                 _locale = get_lang()
         try:
             _collator = _icu.Collator(_locale)
         except Exception as e:
-            print('Failed to load collator for locale: %r with error %r, using English' % (_locale, e))
-            _collator = _icu.Collator('en')
+            print(
+                "Failed to load collator for locale: %r with error %r, using English"
+                % (_locale, e)
+            )
+            _collator = _icu.Collator("en")
     return _collator
 
 
 def primary_collator():
-    'Ignores case differences and accented characters'
+    "Ignores case differences and accented characters"
     global _primary_collator
     if _primary_collator is None:
         _primary_collator = collator().clone()
@@ -42,17 +48,17 @@ def primary_collator():
 
 
 def sort_collator():
-    'Ignores case differences and recognizes numbers in strings (if the tweak is set)'
+    "Ignores case differences and recognizes numbers in strings (if the tweak is set)"
     global _sort_collator
     if _sort_collator is None:
         _sort_collator = collator().clone()
         _sort_collator.strength = _icu.UCOL_SECONDARY
-        _sort_collator.numeric = config_base.tweaks['numeric_collation']
+        _sort_collator.numeric = config_base.tweaks["numeric_collation"]
     return _sort_collator
 
 
 def numeric_collator():
-    'Uses natural sorting for numbers inside strings so something2 will sort before something10'
+    "Uses natural sorting for numbers inside strings so something2 will sort before something10"
     global _numeric_collator
     if _numeric_collator is None:
         _numeric_collator = collator().clone()
@@ -62,7 +68,7 @@ def numeric_collator():
 
 
 def case_sensitive_collator():
-    'Always sorts upper case letter before lower case'
+    "Always sorts upper case letter before lower case"
     global _case_sensitive_collator
     if _case_sensitive_collator is None:
         _case_sensitive_collator = collator().clone()
@@ -70,12 +76,13 @@ def case_sensitive_collator():
         _case_sensitive_collator.upper_first = True
     return _case_sensitive_collator
 
+
 # Templates that will be used to generate various concrete
 # function implementations based on different collators, to allow lazy loading
 # of collators, with maximum runtime performance
 
 
-_sort_key_template = '''
+_sort_key_template = """
 def {name}(obj):
     try:
         try:
@@ -91,9 +98,9 @@ def {name}(obj):
                 return obj
             return {collator}.{func}(obj)
     return b''
-'''
+"""
 
-_strcmp_template = '''
+_strcmp_template = """
 def {name}(a, b):
     try:
         try:
@@ -117,9 +124,9 @@ def {name}(a, b):
         elif b is None:
             b = u''
         return {collator}.{func}(a, b)
-'''
+"""
 
-_change_case_template = '''
+_change_case_template = """
 def {name}(x):
     try:
         try:
@@ -136,13 +143,13 @@ def {name}(x):
                 return x
             return _icu.change_case(x, _icu.{which}, _locale)
         raise
-'''
+"""
 
 
 def _make_func(template, name, **kwargs):
     l = globals()
-    kwargs['name'] = name
-    kwargs['func'] = kwargs.get('func', 'sort_key')
+    kwargs["name"] = name
+    kwargs["func"] = kwargs.get("func", "sort_key")
     exec(template.format(**kwargs), l)
     return l[name]
 
@@ -150,29 +157,71 @@ def _make_func(template, name, **kwargs):
 # }}}
 
 # ################ The string functions ########################################
-sort_key = _make_func(_sort_key_template, 'sort_key', collator='_sort_collator', collator_func='sort_collator')
+sort_key = _make_func(
+    _sort_key_template,
+    "sort_key",
+    collator="_sort_collator",
+    collator_func="sort_collator",
+)
 
-numeric_sort_key = _make_func(_sort_key_template, 'numeric_sort_key', collator='_numeric_collator', collator_func='numeric_collator')
+numeric_sort_key = _make_func(
+    _sort_key_template,
+    "numeric_sort_key",
+    collator="_numeric_collator",
+    collator_func="numeric_collator",
+)
 
-primary_sort_key = _make_func(_sort_key_template, 'primary_sort_key', collator='_primary_collator', collator_func='primary_collator')
+primary_sort_key = _make_func(
+    _sort_key_template,
+    "primary_sort_key",
+    collator="_primary_collator",
+    collator_func="primary_collator",
+)
 
-case_sensitive_sort_key = _make_func(_sort_key_template, 'case_sensitive_sort_key',
-                                     collator='_case_sensitive_collator', collator_func='case_sensitive_collator')
+case_sensitive_sort_key = _make_func(
+    _sort_key_template,
+    "case_sensitive_sort_key",
+    collator="_case_sensitive_collator",
+    collator_func="case_sensitive_collator",
+)
 
-collation_order = _make_func(_sort_key_template, 'collation_order', collator='_sort_collator', collator_func='sort_collator', func='collation_order')
+collation_order = _make_func(
+    _sort_key_template,
+    "collation_order",
+    collator="_sort_collator",
+    collator_func="sort_collator",
+    func="collation_order",
+)
 
-strcmp = _make_func(_strcmp_template, 'strcmp', collator='_sort_collator', collator_func='sort_collator', func='strcmp')
+strcmp = _make_func(
+    _strcmp_template,
+    "strcmp",
+    collator="_sort_collator",
+    collator_func="sort_collator",
+    func="strcmp",
+)
 
 case_sensitive_strcmp = _make_func(
-    _strcmp_template, 'case_sensitive_strcmp', collator='_case_sensitive_collator', collator_func='case_sensitive_collator', func='strcmp')
+    _strcmp_template,
+    "case_sensitive_strcmp",
+    collator="_case_sensitive_collator",
+    collator_func="case_sensitive_collator",
+    func="strcmp",
+)
 
-primary_strcmp = _make_func(_strcmp_template, 'primary_strcmp', collator='_primary_collator', collator_func='primary_collator', func='strcmp')
+primary_strcmp = _make_func(
+    _strcmp_template,
+    "primary_strcmp",
+    collator="_primary_collator",
+    collator_func="primary_collator",
+    func="strcmp",
+)
 
-upper = _make_func(_change_case_template, 'upper', which='UPPER_CASE')
+upper = _make_func(_change_case_template, "upper", which="UPPER_CASE")
 
-lower = _make_func(_change_case_template, 'lower', which='LOWER_CASE')
+lower = _make_func(_change_case_template, "lower", which="LOWER_CASE")
 
-title_case = _make_func(_change_case_template, 'title_case', which='TITLE_CASE')
+title_case = _make_func(_change_case_template, "title_case", which="TITLE_CASE")
 
 
 def capitalize(x):
@@ -185,19 +234,58 @@ def capitalize(x):
 try:
     swapcase = _icu.swap_case
 except AttributeError:  # For people running from source
-    swapcase = lambda x:x.swapcase()
 
-find = _make_func(_strcmp_template, 'find', collator='_collator', collator_func='collator', func='find')
+    def swapcase(x):
+        return x.swapcase()
 
-primary_find = _make_func(_strcmp_template, 'primary_find', collator='_primary_collator', collator_func='primary_collator', func='find')
 
-contains = _make_func(_strcmp_template, 'contains', collator='_collator', collator_func='collator', func='contains')
+find = _make_func(
+    _strcmp_template,
+    "find",
+    collator="_collator",
+    collator_func="collator",
+    func="find",
+)
 
-primary_contains = _make_func(_strcmp_template, 'primary_contains', collator='_primary_collator', collator_func='primary_collator', func='contains')
+primary_find = _make_func(
+    _strcmp_template,
+    "primary_find",
+    collator="_primary_collator",
+    collator_func="primary_collator",
+    func="find",
+)
 
-startswith = _make_func(_strcmp_template, 'startswith', collator='_collator', collator_func='collator', func='startswith')
+contains = _make_func(
+    _strcmp_template,
+    "contains",
+    collator="_collator",
+    collator_func="collator",
+    func="contains",
+)
 
-primary_startswith = _make_func(_strcmp_template, 'primary_startswith', collator='_primary_collator', collator_func='primary_collator', func='startswith')
+primary_contains = _make_func(
+    _strcmp_template,
+    "primary_contains",
+    collator="_primary_collator",
+    collator_func="primary_collator",
+    func="contains",
+)
+
+startswith = _make_func(
+    _strcmp_template,
+    "startswith",
+    collator="_collator",
+    collator_func="collator",
+    func="startswith",
+)
+
+primary_startswith = _make_func(
+    _strcmp_template,
+    "primary_startswith",
+    collator="_primary_collator",
+    collator_func="primary_collator",
+    func="startswith",
+)
 
 safe_chr = chr  # _icu.chr
 
@@ -213,12 +301,12 @@ def character_name(string):
 
 def character_name_from_code(code):
     try:
-        return _icu.character_name_from_code(code) or ''
+        return _icu.character_name_from_code(code) or ""
     except (TypeError, ValueError, KeyError):
-        return ''
+        return ""
 
 
-def normalize(text, mode='NFC'):
+def normalize(text, mode="NFC"):
     # This is very slightly slower than using unicodedata.normalize, so stick with
     # that unless you have very good reasons not too. Also, it's speed
     # decreases on wide python builds, where conversion to/from ICU's string
@@ -240,15 +328,16 @@ def contractions(col=None):
     return ans
 
 
-def partition_by_first_letter(items, reverse=False, key=lambda x:x):
+def partition_by_first_letter(items, reverse=False, key=lambda x: x):
     # Build a list of 'equal' first letters by noticing changes
     # in ICU's 'ordinal' for the first letter.
     from collections import OrderedDict
-    items = sorted(items, key=lambda x:sort_key(key(x)), reverse=reverse)
+
+    items = sorted(items, key=lambda x: sort_key(key(x)), reverse=reverse)
     ans = OrderedDict()
-    last_c, last_ordnum = ' ', 0
+    last_c, last_ordnum = " ", 0
     for item in items:
-        c = (key(item) or ' ').upper()
+        c = (key(item) or " ").upper()
         ordnum, ordlen = collation_order(c)
         if last_ordnum != ordnum:
             if not is_narrow_build:
@@ -263,7 +352,7 @@ def partition_by_first_letter(items, reverse=False, key=lambda x:x):
 
 
 # Return the number of unicode codepoints in a string
-string_length = len  #_icu.string_length if is_narrow_build else len
+string_length = len  # _icu.string_length if is_narrow_build else len
 
 # Return the number of UTF-16 codepoints in a string
 utf16_length = len  # if is_narrow_build else _icu.utf16_length

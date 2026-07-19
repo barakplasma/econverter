@@ -71,8 +71,8 @@ def split_range(start_code, end_code, cmap):  # {{{
     # the glyph IDs are _not_ consecutive.
     i = 1
     while i < len(sub_ranges):
-        if sub_ranges[i-1][1] + 1 != sub_ranges[i][0]:
-            sub_ranges.insert(i, (sub_ranges[i-1][1] + 1, sub_ranges[i][0] - 1))
+        if sub_ranges[i - 1][1] + 1 != sub_ranges[i][0]:
+            sub_ranges.insert(i, (sub_ranges[i - 1][1] + 1, sub_ranges[i][0] - 1))
             i = i + 1
         i = i + 1
 
@@ -86,6 +86,8 @@ def split_range(start_code, end_code, cmap):  # {{{
 
     assert len(start) + 1 == len(end)
     return start, end
+
+
 # }}}
 
 
@@ -105,20 +107,27 @@ def set_id_delta(id_delta):  # {{{
 
     if id_delta > 0x7FFF:
         id_delta = id_delta - 0x10000
-    elif id_delta <  -0x7FFF:
+    elif id_delta < -0x7FFF:
         id_delta = id_delta + 0x10000
 
     return id_delta
+
+
 # }}}
 
 
 class BMPTable(object):
-
     def __init__(self, raw):
         self.raw = raw
-        (self.start_count, self.end_count, self.range_offset, self.id_delta,
-         self.glyph_id_len, self.glyph_id_map, self.array_len) = \
-                read_bmp_prefix(raw, 0)
+        (
+            self.start_count,
+            self.end_count,
+            self.range_offset,
+            self.id_delta,
+            self.glyph_id_len,
+            self.glyph_id_map,
+            self.array_len,
+        ) = read_bmp_prefix(raw, 0)
 
     def get_glyph_ids(self, codes):
         for code in codes:
@@ -132,7 +141,7 @@ class BMPTable(object):
                         if ro == 0:
                             glyph_id = self.id_delta[i] + code
                         else:
-                            idx = ro//2 + (code - sc) + i - self.array_len
+                            idx = ro // 2 + (code - sc) + i - self.array_len
                             glyph_id = self.glyph_id_map[idx]
                             if glyph_id != 0:
                                 glyph_id += self.id_delta[i]
@@ -145,12 +154,12 @@ class BMPTable(object):
         ans = {}
         for i, ec in enumerate(self.end_count):
             sc = self.start_count[i]
-            for code in range(sc, ec+1):
+            for code in range(sc, ec + 1):
                 ro = self.range_offset[i]
                 if ro == 0:
                     glyph_id = self.id_delta[i] + code
                 else:
-                    idx = ro//2 + (code - sc) + i - self.array_len
+                    idx = ro // 2 + (code - sc) + i - self.array_len
                     glyph_id = self.glyph_id_map[idx]
                     if glyph_id != 0:
                         glyph_id += self.id_delta[i]
@@ -161,20 +170,18 @@ class BMPTable(object):
 
 
 class CmapTable(UnknownTable):
-
     def __init__(self, *args, **kwargs):
         super(CmapTable, self).__init__(*args, **kwargs)
 
-        self.version, self.num_tables = unpack_from(b'>HH', self.raw)
+        self.version, self.num_tables = unpack_from(b">HH", self.raw)
 
         self.tables = {}
 
         offset = 4
-        sz = calcsize(b'>HHL')
+        sz = calcsize(b">HHL")
         recs = []
         for i in range(self.num_tables):
-            platform, encoding, table_offset = unpack_from(b'>HHL', self.raw,
-                    offset)
+            platform, encoding, table_offset = unpack_from(b">HHL", self.raw, offset)
             offset += sz
             recs.append((platform, encoding, table_offset))
 
@@ -183,22 +190,24 @@ class CmapTable(UnknownTable):
         for i in range(len(recs)):
             platform, encoding, offset = recs[i]
             try:
-                next_offset = recs[i+1][-1]
+                next_offset = recs[i + 1][-1]
             except IndexError:
                 next_offset = len(self.raw)
             table = self.raw[offset:next_offset]
             if table:
-                fmt = unpack_from(b'>H', table)[0]
+                fmt = unpack_from(b">H", table)[0]
                 if platform == 3 and encoding == 1 and fmt == 4:
                     self.bmp_table = BMPTable(table)
 
     def get_character_map(self, chars):
-        '''
+        """
         Get a mapping of character codes to glyph ids in the font.
-        '''
+        """
         if self.bmp_table is None:
-            raise UnsupportedFont('This font has no Windows BMP cmap subtable.'
-                    ' Most likely a special purpose font.')
+            raise UnsupportedFont(
+                "This font has no Windows BMP cmap subtable."
+                " Most likely a special purpose font."
+            )
         chars = sorted(set(chars))
         ans = OrderedDict()
         for i, glyph_id in enumerate(self.bmp_table.get_glyph_ids(chars)):
@@ -207,24 +216,26 @@ class CmapTable(UnknownTable):
         return ans
 
     def get_glyph_map(self, glyph_ids):
-        '''
+        """
         Get a mapping of character codes to glyph ids for the specified glyph
         ids.
-        '''
+        """
         if self.bmp_table is None:
-            raise UnsupportedFont('This font has no Windows BMP cmap subtable.'
-                    ' Most likely a special purpose font.')
+            raise UnsupportedFont(
+                "This font has no Windows BMP cmap subtable."
+                " Most likely a special purpose font."
+            )
         glyph_ids = frozenset(glyph_ids)
         return self.bmp_table.get_glyph_map(glyph_ids)
 
     def set_character_map(self, cmap):
         self.version, self.num_tables = 0, 1
-        fmt = b'>7H'
+        fmt = b">7H"
         codes = sorted(cmap)
 
         if not codes:
-            start_code = [0xffff]
-            end_code = [0xffff]
+            start_code = [0xFFFF]
+            end_code = [0xFFFF]
         else:
             last_code = codes[0]
             end_code = []
@@ -240,14 +251,16 @@ class CmapTable(UnknownTable):
                 start_code.append(code)
                 last_code = code
             end_code.append(last_code)
-            start_code.append(0xffff)
-            end_code.append(0xffff)
+            start_code.append(0xFFFF)
+            end_code.append(0xFFFF)
 
         id_delta = []
         id_range_offset = []
         glyph_index_array = []
-        for i in range(len(end_code)-1):  # skip the closing codes (0xffff)
-            indices = list(cmap[char_code] for char_code in range(start_code[i], end_code[i] + 1))
+        for i in range(len(end_code) - 1):  # skip the closing codes (0xffff)
+            indices = list(
+                cmap[char_code] for char_code in range(start_code[i], end_code[i] + 1)
+            )
             if indices == list(range(indices[0], indices[0] + len(indices))):
                 # indices is a contiguous list
                 id_delta_temp = set_id_delta(indices[0] - start_code[i])
@@ -262,21 +275,25 @@ class CmapTable(UnknownTable):
 
         seg_count = len(end_code)
         max_exponent = max_power_of_two(seg_count)
-        search_range = 2 * (2 ** max_exponent)
+        search_range = 2 * (2**max_exponent)
         entry_selector = max_exponent
         range_shift = 2 * seg_count - search_range
 
         char_code_array = end_code + [0] + start_code
-        char_code_array = pack(b'>%dH'%len(char_code_array), *char_code_array)
-        id_delta_array = pack(b'>%dh'%len(id_delta), *id_delta)
+        char_code_array = pack(b">%dH" % len(char_code_array), *char_code_array)
+        id_delta_array = pack(b">%dh" % len(id_delta), *id_delta)
         rest_array = id_range_offset + glyph_index_array
-        rest_array = pack(b'>%dH'%len(rest_array), *rest_array)
+        rest_array = pack(b">%dH" % len(rest_array), *rest_array)
         data = char_code_array + id_delta_array + rest_array
 
         length = calcsize(fmt) + len(data)
-        header = pack(fmt, 4, length, 0, 2*seg_count, search_range, entry_selector, range_shift)
+        header = pack(
+            fmt, 4, length, 0, 2 * seg_count, search_range, entry_selector, range_shift
+        )
         self.bmp_table = header + data
 
-        fmt = b'>4HL'
+        fmt = b">4HL"
         offset = calcsize(fmt)
-        self.raw = pack(fmt, self.version, self.num_tables, 3, 1, offset) + self.bmp_table
+        self.raw = (
+            pack(fmt, self.version, self.num_tables, 3, 1, offset) + self.bmp_table
+        )

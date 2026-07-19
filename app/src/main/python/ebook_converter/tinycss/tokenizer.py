@@ -1,19 +1,22 @@
 """
-    tinycss.tokenizer
-    -----------------
+tinycss.tokenizer
+-----------------
 
-    Tokenizer for the CSS core syntax:
-    http://www.w3.org/TR/CSS21/syndata.html#tokenization
+Tokenizer for the CSS core syntax:
+http://www.w3.org/TR/CSS21/syndata.html#tokenization
 
-    This is the pure-python implementation. See also speedups.pyx
+This is the pure-python implementation. See also speedups.pyx
 
-    :copyright: (c) 2012 by Simon Sapin.
-    :license: BSD, see LICENSE for more details.
+:copyright: (c) 2012 by Simon Sapin.
+:license: BSD, see LICENSE for more details.
 """
+
 from ebook_converter.tinycss import token_data
 
 
-def tokenize_flat(css_source, ignore_comments=True,
+def tokenize_flat(
+    css_source,
+    ignore_comments=True,
     # Make these local variable to avoid global lookups in the loop
     tokens_dispatch=token_data.TOKEN_DISPATCH,
     unicode_unescape=token_data.UNICODE_UNESCAPE,
@@ -45,7 +48,7 @@ def tokenize_flat(css_source, ignore_comments=True,
     tokens = []
     while pos < source_len:
         char = css_source[pos]
-        if char in ':;{}()[]':
+        if char in ":;{}()[]":
             type_ = char
             css_value = char
         else:
@@ -62,44 +65,44 @@ def tokenize_flat(css_source, ignore_comments=True,
                 #  and neither a single nor a double quote."
                 # ... but quotes at the start of a token are always matched
                 # by STRING or BAD_STRING. So DELIM is any single character.
-                type_ = 'DELIM'
+                type_ = "DELIM"
                 css_value = char
         length = len(css_value)
         next_pos = pos + length
 
         # A BAD_COMMENT is a comment at EOF. Ignore it too.
-        if not (ignore_comments and type_ in ('COMMENT', 'BAD_COMMENT')):
+        if not (ignore_comments and type_ in ("COMMENT", "BAD_COMMENT")):
             # Parse numbers, extract strings and URIs, unescape
             unit = _None
-            if type_ == 'DIMENSION':
+            if type_ == "DIMENSION":
                 value = match.group(1)
-                value = float(value) if '.' in value else int(value)
+                value = float(value) if "." in value else int(value)
                 unit = match.group(2)
                 unit = simple_unescape(unit)
                 unit = unicode_unescape(unit)
                 unit = unit.lower()  # normalize
-            elif type_ == 'PERCENTAGE':
+            elif type_ == "PERCENTAGE":
                 value = css_value[:-1]
-                value = float(value) if '.' in value else int(value)
-                unit = '%'
-            elif type_ == 'NUMBER':
+                value = float(value) if "." in value else int(value)
+                unit = "%"
+            elif type_ == "NUMBER":
                 value = css_value
-                if '.' in value:
+                if "." in value:
                     value = float(value)
                 else:
                     value = int(value)
-                    type_ = 'INTEGER'
-            elif type_ in ('IDENT', 'ATKEYWORD', 'HASH', 'FUNCTION'):
+                    type_ = "INTEGER"
+            elif type_ in ("IDENT", "ATKEYWORD", "HASH", "FUNCTION"):
                 value = simple_unescape(css_value)
                 value = unicode_unescape(value)
-            elif type_ == 'URI':
+            elif type_ == "URI":
                 value = match.group(1)
-                if value and value[0] in '"\'':
+                if value and value[0] in "\"'":
                     value = value[1:-1]  # Remove quotes
                     value = newline_unescape(value)
                 value = simple_unescape(value)
                 value = unicode_unescape(value)
-            elif type_ == 'STRING':
+            elif type_ == "STRING":
                 value = css_value[1:-1]  # Remove quotes
                 value = newline_unescape(value)
                 value = simple_unescape(value)
@@ -112,8 +115,8 @@ def tokenize_flat(css_source, ignore_comments=True,
             #   Close the string, but this is an error.
             #   Leave it as a BAD_STRING, don’t bother parsing it.
             # See http://www.w3.org/TR/CSS21/syndata.html#parsing-errors
-            elif type_ == 'BAD_STRING' and next_pos == source_len:
-                type_ = 'STRING'
+            elif type_ == "BAD_STRING" and next_pos == source_len:
+                type_ = "STRING"
                 value = css_value[1:]  # Remove quote
                 value = newline_unescape(value)
                 value = simple_unescape(value)
@@ -150,14 +153,18 @@ def regroup(tokens):
 
     """
     # "global" objects for the inner recursion
-    pairs = {'FUNCTION': ')', '(': ')', '[': ']', '{': '}'}
+    pairs = {"FUNCTION": ")", "(": ")", "[": "]", "{": "}"}
     tokens = iter(tokens)
     eof = [False]
 
-    def _regroup_inner(stop_at=None,
-            tokens=tokens, pairs=pairs, eof=eof,
-            ContainerToken=token_data.ContainerToken,
-            FunctionToken=token_data.FunctionToken):
+    def _regroup_inner(
+        stop_at=None,
+        tokens=tokens,
+        pairs=pairs,
+        eof=eof,
+        ContainerToken=token_data.ContainerToken,
+        FunctionToken=token_data.FunctionToken,
+    ):
         for token in tokens:
             type_ = token.type
             if type_ == stop_at:
@@ -168,20 +175,33 @@ def regroup(tokens):
                 yield token  # Not a grouping token
             else:
                 assert not isinstance(token, ContainerToken), (
-                    'Token looks already grouped: {0}'.format(token))
+                    "Token looks already grouped: {0}".format(token)
+                )
                 content = list(_regroup_inner(end))
                 if eof[0]:
-                    end = ''  # Implicit end of structure at EOF.
-                if type_ == 'FUNCTION':
-                    yield FunctionToken(token.type, token.as_css(), end,
-                                        token.value, content,
-                                        token.line, token.column)
+                    end = ""  # Implicit end of structure at EOF.
+                if type_ == "FUNCTION":
+                    yield FunctionToken(
+                        token.type,
+                        token.as_css(),
+                        end,
+                        token.value,
+                        content,
+                        token.line,
+                        token.column,
+                    )
                 else:
-                    yield ContainerToken(token.type, token.as_css(), end,
-                                         content,
-                                         token.line, token.column)
+                    yield ContainerToken(
+                        token.type,
+                        token.as_css(),
+                        end,
+                        content,
+                        token.line,
+                        token.column,
+                    )
         else:
             eof[0] = True  # end of file/stylesheet
+
     return _regroup_inner()
 
 
@@ -209,4 +229,6 @@ except (ImportError, RuntimeError):
     c_tokenize_flat = None
 else:
     # Use the c tokenizer by default
-    c_tokenize_flat = tokenize_flat = lambda s, ignore_comments=False:tok.tokenize_flat(s, ignore_comments)
+    c_tokenize_flat = tokenize_flat = lambda s, ignore_comments=False: (
+        tok.tokenize_flat(s, ignore_comments)
+    )

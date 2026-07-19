@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 
-__license__   = 'GPL v3'
-__copyright__ = '2012, Kovid Goyal <kovid@kovidgoyal.net>'
-__docformat__ = 'restructuredtext en'
+__license__ = "GPL v3"
+__copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
+__docformat__ = "restructuredtext en"
 
 import random
 import time
@@ -16,26 +16,28 @@ from ebook_converter.ebooks.mobi.writer8.exth import build_exth
 from ebook_converter.ebooks.mobi.writer8.header import Header
 from ebook_converter.utils.filenames import ascii_filename
 
-NULL_INDEX = 0xffffffff
-FLIS = b'FLIS\0\0\0\x08\0\x41\0\0\0\0\0\0\xff\xff\xff\xff\0\x01\0\x03\0\0\0\x03\0\0\0\x01'+ b'\xff'*4
+NULL_INDEX = 0xFFFFFFFF
+FLIS = (
+    b"FLIS\0\0\0\x08\0\x41\0\0\0\0\0\0\xff\xff\xff\xff\0\x01\0\x03\0\0\0\x03\0\0\0\x01"
+    + b"\xff" * 4
+)
 
 
 def fcis(text_length):
-    fcis = b'FCIS\x00\x00\x00\x14\x00\x00\x00\x10\x00\x00\x00\x02\x00\x00\x00\x00'
-    fcis += pack(b'>L', text_length)
-    fcis += b'\x00\x00\x00\x00\x00\x00\x00\x28\x00\x00\x00\x00\x00\x00\x00'
-    fcis += b'\x28\x00\x00\x00\x08\x00\x01\x00\x01\x00\x00\x00\x00'
+    fcis = b"FCIS\x00\x00\x00\x14\x00\x00\x00\x10\x00\x00\x00\x02\x00\x00\x00\x00"
+    fcis += pack(b">L", text_length)
+    fcis += b"\x00\x00\x00\x00\x00\x00\x00\x28\x00\x00\x00\x00\x00\x00\x00"
+    fcis += b"\x28\x00\x00\x00\x08\x00\x01\x00\x01\x00\x00\x00\x00"
     return fcis
 
 
 class MOBIHeader(Header):  # {{{
-
-    '''
+    """
     Represents the first record in a MOBI file, contains all the metadata about
     the file.
-    '''
+    """
 
-    DEFINITION = '''
+    DEFINITION = """
     # 0: Compression
     compression = DYN
 
@@ -189,51 +191,74 @@ class MOBIHeader(Header):  # {{{
 
     # Padding to allow amazon's DTP service to add data
     padding = zeroes(8192)
-    '''
+    """
 
-    SHORT_FIELDS = {'compression', 'last_text_record', 'record_size',
-            'encryption_type', 'unused2'}
+    SHORT_FIELDS = {
+        "compression",
+        "last_text_record",
+        "record_size",
+        "encryption_type",
+        "unused2",
+    }
     ALIGN = True
-    POSITIONS = {'title_offset':'full_title'}
+    POSITIONS = {"title_offset": "full_title"}
 
     def __init__(self, file_version=8):
-        self.DEFINITION = self.DEFINITION.format(file_version=file_version,
-                record_size=RECORD_SIZE)
+        self.DEFINITION = self.DEFINITION.format(
+            file_version=file_version, record_size=RECORD_SIZE
+        )
         super().__init__()
 
     def format_value(self, name, val):
-        if name == 'compression':
+        if name == "compression":
             val = PALMDOC if val else UNCOMPRESSED
         return super().format_value(name, val)
+
 
 # }}}
 
 
-HEADER_FIELDS = {'compression', 'text_length', 'last_text_record', 'book_type',
-                    'first_non_text_record', 'title_length', 'language_code',
-                    'first_resource_record', 'exth_flags', 'fdst_record',
-                    'fdst_count', 'ncx_index', 'chunk_index', 'skel_index',
-                    'guide_index', 'exth', 'full_title', 'extra_data_flags',
-                    'flis_record', 'fcis_record', 'uid'}
+HEADER_FIELDS = {
+    "compression",
+    "text_length",
+    "last_text_record",
+    "book_type",
+    "first_non_text_record",
+    "title_length",
+    "language_code",
+    "first_resource_record",
+    "exth_flags",
+    "fdst_record",
+    "fdst_count",
+    "ncx_index",
+    "chunk_index",
+    "skel_index",
+    "guide_index",
+    "exth",
+    "full_title",
+    "extra_data_flags",
+    "flis_record",
+    "fcis_record",
+    "uid",
+}
 
 
 class KF8Book:
-
     def __init__(self, writer, for_joint=False):
         self.build_records(writer, for_joint)
         self.used_images = writer.used_images
         self.page_progression_direction = writer.oeb.spine.page_progression_direction
         self.primary_writing_mode = writer.oeb.metadata.primary_writing_mode
-        if self.page_progression_direction == 'rtl' and not self.primary_writing_mode:
+        if self.page_progression_direction == "rtl" and not self.primary_writing_mode:
             # Without this the Kindle renderer does not respect
             # page_progression_direction
-            self.primary_writing_mode = 'horizontal-rl'
+            self.primary_writing_mode = "horizontal-rl"
 
     def build_records(self, writer, for_joint):
         metadata = writer.oeb.metadata
         # The text records
-        for x in ('last_text_record_idx', 'first_non_text_record_idx'):
-            setattr(self, x.rpartition('_')[0], getattr(writer, x))
+        for x in ("last_text_record_idx", "first_non_text_record_idx"):
+            setattr(self, x.rpartition("_")[0], getattr(writer, x))
         self.records = writer.records
         self.text_length = writer.text_length
 
@@ -253,7 +278,7 @@ class KF8Book:
 
         # Resources
         resources = writer.resources
-        for x in ('cover_offset', 'thumbnail_offset', 'masthead_offset'):
+        for x in ("cover_offset", "thumbnail_offset", "masthead_offset"):
             setattr(self, x, getattr(resources, x))
 
         self.first_resource_record = NULL_INDEX
@@ -276,7 +301,7 @@ class KF8Book:
         self.records.append(fcis(self.text_length))
 
         # EOF
-        self.records.append(b'\xe9\x8e\r\n')  # EOF record
+        self.records.append(b"\xe9\x8e\r\n")  # EOF record
 
         # Miscellaneous header fields
         self.compression = writer.compress
@@ -286,7 +311,7 @@ class KF8Book:
         self.extra_data_flags = 0b1
         if writer.has_tbs:
             self.extra_data_flags |= 0b10
-        self.uid = random.randint(0, 0xffffffff)
+        self.uid = random.randint(0, 0xFFFFFFFF)
 
         self.language_code = iana2mobi(str(metadata.language[0]))
         self.exth_flags = 0b1010000
@@ -302,9 +327,9 @@ class KF8Book:
 
     @property
     def record0(self):
-        ''' We generate the EXTH header and record0 dynamically, to allow other
+        """We generate the EXTH header and record0 dynamically, to allow other
         code to customize various values after build_records() has been
-        called'''
+        called"""
         opts = self.opts
         self.exth = build_exth(
             self.metadata,
@@ -314,39 +339,40 @@ class KF8Book:
             cover_offset=self.cover_offset,
             thumbnail_offset=self.thumbnail_offset,
             num_of_resources=self.num_of_resources,
-            kf8_unknown_count=self.kuc, be_kindlegen2=True,
-            start_offset=self.start_offset, mobi_doctype=self.book_type,
+            kf8_unknown_count=self.kuc,
+            be_kindlegen2=True,
+            start_offset=self.start_offset,
+            mobi_doctype=self.book_type,
             page_progression_direction=self.page_progression_direction,
-            primary_writing_mode=self.primary_writing_mode
+            primary_writing_mode=self.primary_writing_mode,
         )
 
-        kwargs = {field:getattr(self, field) for field in HEADER_FIELDS}
+        kwargs = {field: getattr(self, field) for field in HEADER_FIELDS}
         return MOBIHeader()(**kwargs)
 
     def write(self, outpath):
         records = [self.record0] + self.records[1:]
 
-        with open(outpath, 'wb') as f:
-
+        with open(outpath, "wb") as f:
             # Write PalmDB Header
 
-            title = ascii_filename(self.full_title.decode('utf-8')).replace(' ', '_')
+            title = ascii_filename(self.full_title.decode("utf-8")).replace(" ", "_")
             if not isinstance(title, bytes):
-                title = title.encode('ascii')
+                title = title.encode("ascii")
             title = title[:31]
-            title += (b'\0' * (32 - len(title)))
+            title += b"\0" * (32 - len(title))
             now = int(time.time())
             nrecords = len(records)
             f.write(title)
-            f.write(pack(b'>HHIIIIII', 0, 0, now, now, 0, 0, 0, 0))
-            f.write(b'BOOKMOBI')
-            f.write(pack(b'>IIH', (2*nrecords)-1, 0, nrecords))
+            f.write(pack(b">HHIIIIII", 0, 0, now, now, 0, 0, 0, 0))
+            f.write(b"BOOKMOBI")
+            f.write(pack(b">IIH", (2 * nrecords) - 1, 0, nrecords))
             offset = f.tell() + (8 * nrecords) + 2
             for i, record in enumerate(records):
-                f.write(pack(b'>I', offset))
-                f.write(b'\0' + pack(b'>I', 2*i)[1:])
+                f.write(pack(b">I", offset))
+                f.write(b"\0" + pack(b">I", 2 * i)[1:])
                 offset += len(record)
-            f.write(b'\0\0')
+            f.write(b"\0\0")
 
             for rec in records:
                 f.write(rec)

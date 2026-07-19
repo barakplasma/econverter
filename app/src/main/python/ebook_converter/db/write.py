@@ -3,7 +3,7 @@
 import re
 
 
-series_index_pat = re.compile(r'(.*)\s+\[([.0-9]+)\]$')
+series_index_pat = re.compile(r"(.*)\s+\[([.0-9]+)\]$")
 
 
 def get_series_values(val):

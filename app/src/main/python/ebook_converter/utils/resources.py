@@ -4,11 +4,10 @@ import sys
 from ebook_converter import constants_old
 
 
-user_dir = os.path.join(constants_old.config_dir, 'resources')
+user_dir = os.path.join(constants_old.config_dir, "resources")
 
 
 class PathResolver(object):
-
     def __init__(self):
         sys.resources_location = os.path.abspath(os.path.dirname(__file__))
         self.locations = [sys.resources_location]
@@ -16,18 +15,18 @@ class PathResolver(object):
 
         def suitable(path):
             try:
-                return os.path.exists(path) and os.path.isdir(path) and \
-                       os.listdir(path)
+                return os.path.exists(path) and os.path.isdir(path) and os.listdir(path)
             except Exception:
                 return False
 
         self.default_path = sys.resources_location
 
-        dev_path = os.environ.get('CALIBRE_DEVELOP_FROM', None)
+        dev_path = os.environ.get("CALIBRE_DEVELOP_FROM", None)
         self.using_develop_from = False
         if dev_path is not None:
-            dev_path = os.path.join(os.path.abspath(
-                os.path.dirname(dev_path)), 'resources')
+            dev_path = os.path.join(
+                os.path.abspath(os.path.dirname(dev_path)), "resources"
+            )
             if suitable(dev_path):
                 self.locations.insert(0, dev_path)
                 self.default_path = dev_path
@@ -39,20 +38,20 @@ class PathResolver(object):
             self.user_path = user_dir
 
     def __call__(self, path, allow_user_override=True):
-        path = path.replace(os.sep, '/')
+        path = path.replace(os.sep, "/")
         key = (path, allow_user_override)
         ans = self.cache.get(key, None)
         if ans is None:
             for base in self.locations:
                 if not allow_user_override and base == self.user_path:
                     continue
-                fpath = os.path.join(base, *path.split('/'))
+                fpath = os.path.join(base, *path.split("/"))
                 if os.path.exists(fpath):
                     ans = fpath
                     break
 
             if ans is None:
-                ans = os.path.join(self.default_path, *path.split('/'))
+                ans = os.path.join(self.default_path, *path.split("/"))
 
             self.cache[key] = ans
 
@@ -60,7 +59,7 @@ class PathResolver(object):
 
     def set_data(self, path, data=None):
         self.cache.pop((path, True), None)
-        fpath = os.path.join(user_dir, *path.split('/'))
+        fpath = os.path.join(user_dir, *path.split("/"))
         if data is None:
             if os.path.exists(fpath):
                 os.remove(fpath)
@@ -68,7 +67,7 @@ class PathResolver(object):
             base = os.path.dirname(fpath)
             if not os.path.exists(base):
                 os.makedirs(base)
-            with open(fpath, 'wb') as f:
+            with open(fpath, "wb") as f:
                 f.write(data)
 
 
@@ -79,15 +78,17 @@ def get_path(path, data=False, allow_user_override=True):
     fpath = _resolver(path, allow_user_override=allow_user_override)
 
     if data:
-        with open(fpath, 'rb') as f:
+        with open(fpath, "rb") as f:
             return f.read()
     return fpath
 
 
 def get_image_path(path, data=False, allow_user_override=True):
     if not path:
-        return get_path('images', allow_user_override=allow_user_override)
-    return get_path('images/'+path, data=data, allow_user_override=allow_user_override)
+        return get_path("images", allow_user_override=allow_user_override)
+    return get_path(
+        "images/" + path, data=data, allow_user_override=allow_user_override
+    )
 
 
 def set_data(path, data=None):

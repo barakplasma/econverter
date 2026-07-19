@@ -1,34 +1,42 @@
 import os
 
-from ebook_converter.customize.conversion import OutputFormatPlugin, OptionRecommendation
+from ebook_converter.customize.conversion import (
+    OutputFormatPlugin,
+    OptionRecommendation,
+)
 
 
-__license__ = 'GPL 3'
-__copyright__ = '2009, John Schember <john@nachtimwald.com>'
-__docformat__ = 'restructuredtext en'
+__license__ = "GPL 3"
+__copyright__ = "2009, John Schember <john@nachtimwald.com>"
+__docformat__ = "restructuredtext en"
 
 
 class RBOutput(OutputFormatPlugin):
-
-    name = 'RB Output'
-    author = 'John Schember'
-    file_type = 'rb'
-    commit_name = 'rb_output'
+    name = "RB Output"
+    author = "John Schember"
+    file_type = "rb"
+    commit_name = "rb_output"
 
     options = {
-        OptionRecommendation(name='inline_toc',
-            recommended_value=False, level=OptionRecommendation.LOW,
-            help='Add Table of Contents to beginning of the book.')}
+        OptionRecommendation(
+            name="inline_toc",
+            recommended_value=False,
+            level=OptionRecommendation.LOW,
+            help="Add Table of Contents to beginning of the book.",
+        )
+    }
 
     def convert(self, oeb_book, output_path, input_plugin, opts, log):
         from ebook_converter.ebooks.rb.writer import RBWriter
 
         close = False
-        if not hasattr(output_path, 'write'):
+        if not hasattr(output_path, "write"):
             close = True
-            if not os.path.exists(os.path.dirname(output_path)) and os.path.dirname(output_path):
+            if not os.path.exists(os.path.dirname(output_path)) and os.path.dirname(
+                output_path
+            ):
                 os.makedirs(os.path.dirname(output_path))
-            out_stream = open(output_path, 'wb')
+            out_stream = open(output_path, "wb")
         else:
             out_stream = output_path
 

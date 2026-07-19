@@ -1,21 +1,27 @@
 """
-    tinycss.css21
-    -------------
+tinycss.css21
+-------------
 
-    Parser for CSS 2.1
-    http://www.w3.org/TR/CSS21/syndata.html
+Parser for CSS 2.1
+http://www.w3.org/TR/CSS21/syndata.html
 
-    :copyright: (c) 2012 by Simon Sapin.
-    :license: BSD, see LICENSE for more details.
+:copyright: (c) 2012 by Simon Sapin.
+:license: BSD, see LICENSE for more details.
 """
+
 from itertools import chain, islice
 
 from ebook_converter.tinycss.decoding import decode
 from ebook_converter.tinycss.token_data import TokenList
 from ebook_converter.tinycss.tokenizer import tokenize_grouped
 from ebook_converter.tinycss.parsing import (
-    strip_whitespace, remove_whitespace, split_on_comma, validate_value,
-    validate_any, ParseError)
+    strip_whitespace,
+    remove_whitespace,
+    split_on_comma,
+    validate_value,
+    validate_any,
+    ParseError,
+)
 
 
 #  stylesheet  : [ CDO | CDC | S | statement ]*;
@@ -57,14 +63,16 @@ class Stylesheet(object):
         from bytes, or ``None`` for Unicode stylesheets.
 
     """
+
     def __init__(self, rules, errors, encoding):
         self.rules = rules
         self.errors = errors
         self.encoding = encoding
 
     def __repr__(self):
-        return '<{0.__class__.__name__} {1} rules {2} errors>'.format(
-            self, len(self.rules), len(self.errors))
+        return "<{0.__class__.__name__} {1} rules {2} errors>".format(
+            self, len(self.rules), len(self.errors)
+        )
 
 
 class AtRule(object):
@@ -98,7 +106,7 @@ class AtRule(object):
 
     """
 
-    __slots__ = 'at_keyword', 'head', 'body', 'line', 'column'
+    __slots__ = "at_keyword", "head", "body", "line", "column"
 
     def __init__(self, at_keyword, head, body, line, column):
         self.at_keyword = at_keyword
@@ -108,8 +116,9 @@ class AtRule(object):
         self.column = column
 
     def __repr__(self):
-        return ('<{0.__class__.__name__} {0.line}:{0.column} {0.at_keyword}>'
-                .format(self))
+        return "<{0.__class__.__name__} {0.line}:{0.column} {0.at_keyword}>".format(
+            self
+        )
 
 
 class RuleSet(object):
@@ -134,7 +143,7 @@ class RuleSet(object):
     """
 
     at_keyword = None
-    __slots__ = 'selector', 'declarations', 'line', 'column'
+    __slots__ = "selector", "declarations", "line", "column"
 
     def __init__(self, selector, declarations, line, column):
         self.selector = TokenList(selector)
@@ -143,8 +152,9 @@ class RuleSet(object):
         self.column = column
 
     def __repr__(self):
-        return ('<{0.__class__.__name__} at {0.line}:{0.column} {1}>'
-                .format(self, self.selector.as_css()))
+        return "<{0.__class__.__name__} at {0.line}:{0.column} {1}>".format(
+            self, self.selector.as_css()
+        )
 
 
 class Declaration(object):
@@ -172,7 +182,8 @@ class Declaration(object):
         Either the string ``'important'`` or ``None``.
 
     """
-    __slots__ = 'name', 'value', 'priority', 'line', 'column'
+
+    __slots__ = "name", "value", "priority", "line", "column"
 
     def __init__(self, name, value, priority, line, column):
         self.name = name
@@ -182,10 +193,10 @@ class Declaration(object):
         self.column = column
 
     def __repr__(self):
-        priority = ' !' + self.priority if self.priority else ''
-        return ('<{0.__class__.__name__} {0.line}:{0.column}'
-                ' {0.name}: {1}{2}>'.format(
-                    self, self.value.as_css(), priority))
+        priority = " !" + self.priority if self.priority else ""
+        return "<{0.__class__.__name__} {0.line}:{0.column} {0.name}: {1}{2}>".format(
+            self, self.value.as_css(), priority
+        )
 
 
 class PageRule(object):
@@ -217,11 +228,11 @@ class PageRule(object):
         Always empty for CSS 2.1.
 
     """
-    at_keyword = '@page'
-    __slots__ = 'selector', 'specificity', 'declarations', 'at_rules', 'line', 'column'
 
-    def __init__(self, selector, specificity, declarations, at_rules,
-                 line, column):
+    at_keyword = "@page"
+    __slots__ = "selector", "specificity", "declarations", "at_rules", "line", "column"
+
+    def __init__(self, selector, specificity, declarations, at_rules, line, column):
         self.selector = selector
         self.specificity = specificity
         self.declarations = declarations
@@ -230,8 +241,7 @@ class PageRule(object):
         self.column = column
 
     def __repr__(self):
-        return ('<{0.__class__.__name__} {0.line}:{0.column}'
-                ' {0.selector}>'.format(self))
+        return "<{0.__class__.__name__} {0.line}:{0.column} {0.selector}>".format(self)
 
 
 class MediaRule(object):
@@ -252,8 +262,9 @@ class MediaRule(object):
         block, in source order.
 
     """
-    at_keyword = '@media'
-    __slots__ = 'media', 'rules', 'line', 'column'
+
+    at_keyword = "@media"
+    __slots__ = "media", "rules", "line", "column"
 
     def __init__(self, media, rules, line, column):
         self.media = media
@@ -262,8 +273,7 @@ class MediaRule(object):
         self.column = column
 
     def __repr__(self):
-        return ('<{0.__class__.__name__} {0.line}:{0.column}'
-                ' {0.media}>'.format(self))
+        return "<{0.__class__.__name__} {0.line}:{0.column} {0.media}>".format(self)
 
 
 class ImportRule(object):
@@ -286,8 +296,9 @@ class ImportRule(object):
         in the source.
 
     """
-    at_keyword = '@import'
-    __slots__ = 'uri', 'media', 'line', 'column'
+
+    at_keyword = "@import"
+    __slots__ = "uri", "media", "line", "column"
 
     def __init__(self, uri, media, line, column):
         self.uri = uri
@@ -296,8 +307,7 @@ class ImportRule(object):
         self.column = column
 
     def __repr__(self):
-        return ('<{0.__class__.__name__} {0.line}:{0.column}'
-                ' {0.uri}>'.format(self))
+        return "<{0.__class__.__name__} {0.line}:{0.column} {0.uri}>".format(self)
 
 
 def _remove_at_charset(tokens):
@@ -311,10 +321,9 @@ def _remove_at_charset(tokens):
     """
     tokens = iter(tokens)
     header = list(islice(tokens, 4))
-    if [t.type for t in header] == ['ATKEYWORD', 'S', 'STRING', ';']:
+    if [t.type for t in header] == ["ATKEYWORD", "S", "STRING", ";"]:
         atkw, space, string, semicolon = header
-        if ((atkw.value, space.value) == ('@charset', ' ')
-                and string.as_css()[0] == '"'):
+        if (atkw.value, space.value) == ("@charset", " ") and string.as_css()[0] == '"':
             # Found a valid @charset rule, only keep what’s after it.
             return tokens
     return chain(header, tokens)
@@ -336,12 +345,19 @@ class CSS21Parser(object):
 
     def __init__(self):
         self.at_parsers = {
-            '@' + x:getattr(self, 'parse_%s_rule' % x) for x in ('media', 'page', 'import', 'charset')}
+            "@" + x: getattr(self, "parse_%s_rule" % x)
+            for x in ("media", "page", "import", "charset")
+        }
 
     # User API:
 
-    def parse_stylesheet_file(self, css_file, protocol_encoding=None,
-                             linking_encoding=None, document_encoding=None):
+    def parse_stylesheet_file(
+        self,
+        css_file,
+        protocol_encoding=None,
+        linking_encoding=None,
+        document_encoding=None,
+    ):
         """Parse a stylesheet from a file or filename.
 
         Character encoding-related parameters and behavior are the same
@@ -354,16 +370,22 @@ class CSS21Parser(object):
             A :class:`Stylesheet`.
 
         """
-        if hasattr(css_file, 'read'):
+        if hasattr(css_file, "read"):
             css_bytes = css_file.read()
         else:
-            with open(css_file, 'rb') as fd:
+            with open(css_file, "rb") as fd:
                 css_bytes = fd.read()
-        return self.parse_stylesheet_bytes(css_bytes, protocol_encoding,
-                                           linking_encoding, document_encoding)
+        return self.parse_stylesheet_bytes(
+            css_bytes, protocol_encoding, linking_encoding, document_encoding
+        )
 
-    def parse_stylesheet_bytes(self, css_bytes, protocol_encoding=None,
-                               linking_encoding=None, document_encoding=None):
+    def parse_stylesheet_bytes(
+        self,
+        css_bytes,
+        protocol_encoding=None,
+        linking_encoding=None,
+        document_encoding=None,
+    ):
         """Parse a stylesheet from a byte string.
 
         The character encoding is determined from the passed metadata and the
@@ -385,8 +407,9 @@ class CSS21Parser(object):
             A :class:`Stylesheet`.
 
         """
-        css_unicode, encoding = decode(css_bytes, protocol_encoding,
-                                       linking_encoding, document_encoding)
+        css_unicode, encoding = decode(
+            css_bytes, protocol_encoding, linking_encoding, document_encoding
+        )
         return self.parse_stylesheet(css_unicode, encoding=encoding)
 
     def parse_stylesheet(self, css_unicode, encoding=None):
@@ -404,7 +427,7 @@ class CSS21Parser(object):
         tokens = tokenize_grouped(css_unicode)
         if encoding:
             tokens = _remove_at_charset(tokens)
-        rules, errors = self.parse_rules(tokens, context='stylesheet')
+        rules, errors = self.parse_rules(tokens, context="stylesheet")
         return Stylesheet(rules, errors, encoding)
 
     def parse_style_attr(self, css_source):
@@ -440,12 +463,11 @@ class CSS21Parser(object):
         errors = []
         tokens = iter(tokens)
         for token in tokens:
-            if token.type not in ('S', 'CDO', 'CDC'):
+            if token.type not in ("S", "CDO", "CDC"):
                 try:
-                    if token.type == 'ATKEYWORD':
+                    if token.type == "ATKEYWORD":
                         rule = self.read_at_rule(token, tokens)
-                        result = self.parse_at_rule(
-                            rule, rules, errors, context)
+                        result = self.parse_at_rule(rule, rules, errors, context)
                         rules.append(result)
                     else:
                         rule, rule_errors = self.parse_ruleset(token, tokens)
@@ -479,7 +501,7 @@ class CSS21Parser(object):
         # For the ParseError in case `tokens` is empty:
         token = at_keyword_token
         for token in tokens:
-            if token.type in '{;':
+            if token.type in "{;":
                 break
             # Ignore white space just after the at-keyword.
             else:
@@ -487,10 +509,11 @@ class CSS21Parser(object):
         # On unexpected end of stylesheet, pretend that a ';' was there
         head = strip_whitespace(head)
         for head_token in head:
-            validate_any(head_token, 'at-rule head')
-        body = token.content if token.type == '{' else None
-        return AtRule(at_keyword, head, body,
-                      at_keyword_token.line, at_keyword_token.column)
+            validate_any(head_token, "at-rule head")
+        body = token.content if token.type == "{" else None
+        return AtRule(
+            at_keyword, head, body, at_keyword_token.line, at_keyword_token.column
+        )
 
     def parse_at_rule(self, rule, previous_rules, errors, context):
         """Parse an at-rule.
@@ -520,55 +543,60 @@ class CSS21Parser(object):
         try:
             parser = self.at_parsers[rule.at_keyword]
         except KeyError:
-            raise ParseError(rule, 'unknown at-rule in {0} context: {1}'
-                                    .format(context, rule.at_keyword))
+            raise ParseError(
+                rule,
+                "unknown at-rule in {0} context: {1}".format(context, rule.at_keyword),
+            )
         else:
             return parser(rule, previous_rules, errors, context)
 
     def parse_page_rule(self, rule, previous_rules, errors, context):
-        if context != 'stylesheet':
-            raise ParseError(rule, '@page rule not allowed in ' + context)
+        if context != "stylesheet":
+            raise ParseError(rule, "@page rule not allowed in " + context)
         selector, specificity = self.parse_page_selector(rule.head)
         if rule.body is None:
-            raise ParseError(rule,
-                'invalid {0} rule: missing block'.format(rule.at_keyword))
-        declarations, at_rules, rule_errors = \
-            self.parse_declarations_and_at_rules(rule.body, '@page')
+            raise ParseError(
+                rule, "invalid {0} rule: missing block".format(rule.at_keyword)
+            )
+        declarations, at_rules, rule_errors = self.parse_declarations_and_at_rules(
+            rule.body, "@page"
+        )
         errors.extend(rule_errors)
-        return PageRule(selector, specificity, declarations, at_rules,
-                        rule.line, rule.column)
+        return PageRule(
+            selector, specificity, declarations, at_rules, rule.line, rule.column
+        )
 
     def parse_media_rule(self, rule, previous_rules, errors, context):
-        if context != 'stylesheet':
-            raise ParseError(rule, '@media rule not allowed in ' + context)
+        if context != "stylesheet":
+            raise ParseError(rule, "@media rule not allowed in " + context)
         media = self.parse_media(rule.head, errors)
         if rule.body is None:
-            raise ParseError(rule,
-                'invalid {0} rule: missing block'.format(rule.at_keyword))
-        rules, rule_errors = self.parse_rules(rule.body, '@media')
+            raise ParseError(
+                rule, "invalid {0} rule: missing block".format(rule.at_keyword)
+            )
+        rules, rule_errors = self.parse_rules(rule.body, "@media")
         errors.extend(rule_errors)
         return MediaRule(media, rules, rule.line, rule.column)
 
     def parse_import_rule(self, rule, previous_rules, errors, context):
-        if context != 'stylesheet':
-            raise ParseError(rule,
-                '@import rule not allowed in ' + context)
+        if context != "stylesheet":
+            raise ParseError(rule, "@import rule not allowed in " + context)
         for previous_rule in previous_rules:
-            if previous_rule.at_keyword not in ('@charset', '@import'):
+            if previous_rule.at_keyword not in ("@charset", "@import"):
                 if previous_rule.at_keyword:
-                    type_ = 'an {0} rule'.format(previous_rule.at_keyword)
+                    type_ = "an {0} rule".format(previous_rule.at_keyword)
                 else:
-                    type_ = 'a ruleset'
-                raise ParseError(previous_rule,
-                    '@import rule not allowed after ' + type_)
+                    type_ = "a ruleset"
+                raise ParseError(
+                    previous_rule, "@import rule not allowed after " + type_
+                )
         head = rule.head
         if not head:
-            raise ParseError(rule,
-                'expected URI or STRING for @import rule')
-        if head[0].type not in ('URI', 'STRING'):
-            raise ParseError(rule,
-                'expected URI or STRING for @import rule, got '
-                + head[0].type)
+            raise ParseError(rule, "expected URI or STRING for @import rule")
+        if head[0].type not in ("URI", "STRING"):
+            raise ParseError(
+                rule, "expected URI or STRING for @import rule, got " + head[0].type
+            )
         uri = head[0].value
         media = self.parse_media(strip_whitespace(head[1:]), errors)
         if rule.body is not None:
@@ -578,7 +606,7 @@ class CSS21Parser(object):
         return ImportRule(uri, media, rule.line, rule.column)
 
     def parse_charset_rule(self, rule, previous_rules, errors, context):
-        raise ParseError(rule, 'mis-placed or malformed @charset rule')
+        raise ParseError(rule, "mis-placed or malformed @charset rule")
 
     def parse_media(self, tokens, errors):
         """For CSS 2.1, parse a list of media types.
@@ -593,15 +621,18 @@ class CSS21Parser(object):
             For CSS 2.1, a list of media types as strings
         """
         if not tokens:
-            return ['all']
+            return ["all"]
         media_types = []
         for part in split_on_comma(remove_whitespace(tokens)):
             types = [token.type for token in part]
-            if types == ['IDENT']:
+            if types == ["IDENT"]:
                 media_types.append(part[0].value)
             else:
-                raise ParseError(tokens[0], 'expected a media type'
-                    + ((', got ' + ', '.join(types)) if types else ''))
+                raise ParseError(
+                    tokens[0],
+                    "expected a media type"
+                    + ((", got " + ", ".join(types)) if types else ""),
+                )
         return media_types
 
     def parse_page_selector(self, tokens):
@@ -619,15 +650,16 @@ class CSS21Parser(object):
         """
         if not tokens:
             return None, (0, 0)
-        if (len(tokens) == 2 and tokens[0].type == ':'
-                and tokens[1].type == 'IDENT'):
+        if len(tokens) == 2 and tokens[0].type == ":" and tokens[1].type == "IDENT":
             pseudo_class = tokens[1].value
             specificity = {
-                'first': (1, 0), 'left': (0, 1), 'right': (0, 1),
+                "first": (1, 0),
+                "left": (0, 1),
+                "right": (0, 1),
             }.get(pseudo_class)
             if specificity:
                 return pseudo_class, specificity
-        raise ParseError(tokens[0], 'invalid @page selector')
+        raise ParseError(tokens[0], "invalid @page selector")
 
     def parse_declarations_and_at_rules(self, tokens, context):
         """Parse a mixed list of declarations and at rules, as found eg.
@@ -656,23 +688,21 @@ class CSS21Parser(object):
         errors = []
         tokens = iter(tokens)
         for token in tokens:
-            if token.type == 'ATKEYWORD':
+            if token.type == "ATKEYWORD":
                 try:
                     rule = self.read_at_rule(token, tokens)
-                    result = self.parse_at_rule(
-                        rule, at_rules, errors, context)
+                    result = self.parse_at_rule(rule, at_rules, errors, context)
                     at_rules.append(result)
                 except ParseError as err:
                     errors.append(err)
-            elif token.type != 'S':
+            elif token.type != "S":
                 declaration_tokens = []
-                while token and token.type != ';':
+                while token and token.type != ";":
                     declaration_tokens.append(token)
                     token = next(tokens, None)
                 if declaration_tokens:
                     try:
-                        declarations.append(
-                            self.parse_declaration(declaration_tokens))
+                        declarations.append(self.parse_declaration(declaration_tokens))
                     except ParseError as err:
                         errors.append(err)
         return declarations, at_rules, errors
@@ -700,21 +730,21 @@ class CSS21Parser(object):
         """
         selector = []
         for token in chain([first_token], tokens):
-            if token.type == '{':
+            if token.type == "{":
                 # Parse/validate once we’ve read the whole rule
                 selector = strip_whitespace(selector)
                 if not selector:
-                    raise ParseError(first_token, 'empty selector')
+                    raise ParseError(first_token, "empty selector")
                 for selector_token in selector:
-                    validate_any(selector_token, 'selector')
-                declarations, errors = self.parse_declaration_list(
-                    token.content)
-                ruleset = RuleSet(selector, declarations,
-                                  first_token.line, first_token.column)
+                    validate_any(selector_token, "selector")
+                declarations, errors = self.parse_declaration_list(token.content)
+                ruleset = RuleSet(
+                    selector, declarations, first_token.line, first_token.column
+                )
                 return ruleset, errors
             else:
                 selector.append(token)
-        raise ParseError(token, 'no declaration block found for ruleset')
+        raise ParseError(token, "no declaration block found for ruleset")
 
     def parse_declaration_list(self, tokens):
         """Parse a ``;`` separated declaration list.
@@ -735,7 +765,7 @@ class CSS21Parser(object):
         parts = []
         this_part = []
         for token in tokens:
-            if token.type == ';':
+            if token.type == ";":
                 parts.append(this_part)
                 this_part = []
             else:
@@ -773,30 +803,31 @@ class CSS21Parser(object):
         tokens = iter(tokens)
 
         name_token = next(tokens)  # assume there is at least one
-        if name_token.type == 'IDENT':
+        if name_token.type == "IDENT":
             # CSS syntax is case-insensitive
             property_name = name_token.value.lower()
         else:
-            raise ParseError(name_token,
-                'expected a property name, got {0}'.format(name_token.type))
+            raise ParseError(
+                name_token, "expected a property name, got {0}".format(name_token.type)
+            )
 
         token = name_token  # In case ``tokens`` is now empty
         for token in tokens:
-            if token.type == ':':
+            if token.type == ":":
                 break
-            elif token.type != 'S':
-                raise ParseError(
-                    token, "expected ':', got {0}".format(token.type))
+            elif token.type != "S":
+                raise ParseError(token, "expected ':', got {0}".format(token.type))
         else:
             raise ParseError(token, "expected ':'")
 
         value = strip_whitespace(list(tokens))
         if not value:
-            raise ParseError(token, 'expected a property value')
+            raise ParseError(token, "expected a property value")
         validate_value(value)
         value, priority = self.parse_value_priority(value)
         return Declaration(
-            property_name, value, priority, name_token.line, name_token.column)
+            property_name, value, priority, name_token.line, name_token.column
+        )
 
     def parse_value_priority(self, tokens):
         """Separate any ``!important`` marker at the end of a property value.
@@ -810,18 +841,17 @@ class CSS21Parser(object):
         value = list(tokens)
         # Walk the token list from the end
         token = value.pop()
-        if token.type == 'IDENT' and token.value.lower() == 'important':
+        if token.type == "IDENT" and token.value.lower() == "important":
             while value:
                 token = value.pop()
-                if token.type == 'DELIM' and token.value == '!':
+                if token.type == "DELIM" and token.value == "!":
                     # Skip any white space before the '!'
-                    while value and value[-1].type == 'S':
+                    while value and value[-1].type == "S":
                         value.pop()
                     if not value:
-                        raise ParseError(
-                            token, 'expected a value before !important')
-                    return value, 'important'
+                        raise ParseError(token, "expected a value before !important")
+                    return value, "important"
                 # Skip white space between '!' and 'important'
-                elif token.type != 'S':
+                elif token.type != "S":
                     break
         return tokens, None

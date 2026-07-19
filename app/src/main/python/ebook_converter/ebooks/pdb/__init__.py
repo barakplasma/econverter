@@ -1,6 +1,6 @@
-__license__ = 'GPL v3'
-__copyright__ = '2009, John Schember <john@nachtimwald.com>'
-__docformat__ = 'restructuredtext en'
+__license__ = "GPL v3"
+__copyright__ = "2009, John Schember <john@nachtimwald.com>"
+__docformat__ = "restructuredtext en"
 
 
 class PDBError(Exception):
@@ -20,18 +20,18 @@ def _import_readers():
     from ebook_converter.ebooks.pdb.haodoo.reader import Reader as haodoo_reader
 
     FORMAT_READERS = {
-        'PNPdPPrs': ereader_reader,
-        'PNRdPPrs': ereader_reader,
-        'zTXTGPlm': ztxt_reader,
-        'TEXtREAd': palmdoc_reader,
-        '.pdfADBE': pdf_reader,
-        'DataPlkr': plucker_reader,
-        'BOOKMTIT': haodoo_reader,
-        'BOOKMTIU': haodoo_reader,
+        "PNPdPPrs": ereader_reader,
+        "PNRdPPrs": ereader_reader,
+        "zTXTGPlm": ztxt_reader,
+        "TEXtREAd": palmdoc_reader,
+        ".pdfADBE": pdf_reader,
+        "DataPlkr": plucker_reader,
+        "BOOKMTIT": haodoo_reader,
+        "BOOKMTIU": haodoo_reader,
     }
 
 
-ALL_FORMAT_WRITERS = {'doc', 'ztxt', 'ereader'}
+ALL_FORMAT_WRITERS = {"doc", "ztxt", "ereader"}
 FORMAT_WRITERS = None
 
 
@@ -42,51 +42,50 @@ def _import_writers():
     from ebook_converter.ebooks.pdb.ereader.writer import Writer as ereader_writer
 
     FORMAT_WRITERS = {
-        'doc': palmdoc_writer,
-        'ztxt': ztxt_writer,
-        'ereader': ereader_writer,
+        "doc": palmdoc_writer,
+        "ztxt": ztxt_writer,
+        "ereader": ereader_writer,
     }
 
 
 IDENTITY_TO_NAME = {
-    'PNPdPPrs': 'eReader',
-    'PNRdPPrs': 'eReader',
-    'zTXTGPlm': 'zTXT',
-    'TEXtREAd': 'PalmDOC',
-    '.pdfADBE': 'Adobe Reader',
-    'DataPlkr': 'Plucker',
-    'BOOKMTIT': 'Haodoo.net',
-    'BOOKMTIU': 'Haodoo.net',
-
-    'BVokBDIC': 'BDicty',
-    'DB99DBOS': 'DB (Database program)',
-    'vIMGView': 'FireViewer (ImageViewer)',
-    'PmDBPmDB': 'HanDBase',
-    'InfoINDB': 'InfoView',
-    'ToGoToGo': 'iSilo',
-    'SDocSilX': 'iSilo 3',
-    'JbDbJBas': 'JFile',
-    'JfDbJFil': 'JFile Pro',
-    'DATALSdb': 'LIST',
-    'Mdb1Mdb1': 'MobileDB',
-    'BOOKMOBI': 'MobiPocket',
-    'DataSprd': 'QuickSheet',
-    'SM01SMem': 'SuperMemo',
-    'TEXtTlDc': 'TealDoc',
-    'InfoTlIf': 'TealInfo',
-    'DataTlMl': 'TealMeal',
-    'DataTlPt': 'TealPaint',
-    'dataTDBP': 'ThinkDB',
-    'TdatTide': 'Tides',
-    'ToRaTRPW': 'TomeRaider',
-    'BDOCWrdS': 'WordSmith',
+    "PNPdPPrs": "eReader",
+    "PNRdPPrs": "eReader",
+    "zTXTGPlm": "zTXT",
+    "TEXtREAd": "PalmDOC",
+    ".pdfADBE": "Adobe Reader",
+    "DataPlkr": "Plucker",
+    "BOOKMTIT": "Haodoo.net",
+    "BOOKMTIU": "Haodoo.net",
+    "BVokBDIC": "BDicty",
+    "DB99DBOS": "DB (Database program)",
+    "vIMGView": "FireViewer (ImageViewer)",
+    "PmDBPmDB": "HanDBase",
+    "InfoINDB": "InfoView",
+    "ToGoToGo": "iSilo",
+    "SDocSilX": "iSilo 3",
+    "JbDbJBas": "JFile",
+    "JfDbJFil": "JFile Pro",
+    "DATALSdb": "LIST",
+    "Mdb1Mdb1": "MobileDB",
+    "BOOKMOBI": "MobiPocket",
+    "DataSprd": "QuickSheet",
+    "SM01SMem": "SuperMemo",
+    "TEXtTlDc": "TealDoc",
+    "InfoTlIf": "TealInfo",
+    "DataTlMl": "TealMeal",
+    "DataTlPt": "TealPaint",
+    "dataTDBP": "ThinkDB",
+    "TdatTide": "Tides",
+    "ToRaTRPW": "TomeRaider",
+    "BDOCWrdS": "WordSmith",
 }
 
 
 def get_reader(identity):
-    '''
+    """
     Returns None if no reader is found for the identity.
-    '''
+    """
     global FORMAT_READERS
     if FORMAT_READERS is None:
         _import_readers()
@@ -94,9 +93,9 @@ def get_reader(identity):
 
 
 def get_writer(extension):
-    '''
+    """
     Returns None if no writer is found for extension.
-    '''
+    """
     global FORMAT_WRITERS
     if FORMAT_WRITERS is None:
         _import_writers()

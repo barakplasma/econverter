@@ -10,7 +10,9 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
-import sys, os, re
+import sys
+import os
+import re
 
 from ebook_converter.ebooks.rtf2xml import copy
 from ebook_converter.ptempfile import better_mktemp
@@ -22,12 +24,7 @@ class Colors:
     Change lines with color info from color numbers to the actual color names.
     """
 
-    def __init__(self,
-            in_file,
-            bug_handler,
-            copy=None,
-            run_level=1
-            ):
+    def __init__(self, in_file, bug_handler, copy=None, run_level=1):
         """
         Required:
             'file'--file to parse
@@ -37,7 +34,7 @@ class Colors:
             directory from which the script is run.)
         Returns:
             nothing
-            """
+        """
         self.__file = in_file
         self.__copy = copy
         self.__bug_handler = bug_handler
@@ -50,19 +47,19 @@ class Colors:
         Initiate all values.
         """
         self.__color_dict = {}
-        self.__state = 'before_color_table'
+        self.__state = "before_color_table"
         self.__state_dict = {
-        'before_color_table': self.__before_color_func,
-        'in_color_table'    : self.__in_color_func,
-        'after_color_table'  : self.__after_color_func,
-        'cw<ci<red_______'  : self.__default_color_func,
-        'cw<ci<green_____'  : self.__default_color_func,
-        'cw<ci<blue______'  : self.__blue_func,
-        'tx<nu<__________'  : self.__do_nothing_func,
+            "before_color_table": self.__before_color_func,
+            "in_color_table": self.__in_color_func,
+            "after_color_table": self.__after_color_func,
+            "cw<ci<red_______": self.__default_color_func,
+            "cw<ci<green_____": self.__default_color_func,
+            "cw<ci<blue______": self.__blue_func,
+            "tx<nu<__________": self.__do_nothing_func,
         }
-        self.__color_string = '#'
+        self.__color_string = "#"
         self.__color_num = 1
-        self.__line_color_exp = re.compile(r'bdr-color_:(\d+)')
+        self.__line_color_exp = re.compile(r"bdr-color_:(\d+)")
         # cw<bd<bor-par-to<nu<bdr-hair__|bdr-li-wid:0.50|bdr-sp-wid:1.00|bdr-color_:2
 
     def __before_color_func(self, line):
@@ -77,8 +74,8 @@ class Colors:
             Always print out the line.
         """
         # mi<mk<clrtbl-beg
-        if self.__token_info == 'mi<mk<clrtbl-beg':
-            self.__state = 'in_color_table'
+        if self.__token_info == "mi<mk<clrtbl-beg":
+            self.__state = "in_color_table"
         self.__write_obj.write(line)
 
     def __default_color_func(self, line):
@@ -89,7 +86,7 @@ class Colors:
             nothing
         Logic:
             get the hex number from the line and add it to the color string.
-            """
+        """
         hex_num = line[-3:-1]
         self.__color_string += hex_num
 
@@ -105,16 +102,17 @@ class Colors:
             as the key, and the hex number as the value. Write an empty tag
             with the hex number and number as attributes. Add one to the color
             number. Reset the color string to '#'
-            """
+        """
         hex_num = line[-3:-1]
-        self.__color_string +=  hex_num
+        self.__color_string += hex_num
         self.__color_dict[self.__color_num] = self.__color_string
         self.__write_obj.write(
-        'mi<tg<empty-att_'
-        '<color-in-table<num>%s<value>%s\n' % (self.__color_num, self.__color_string)
+            "mi<tg<empty-att_"
+            "<color-in-table<num>%s<value>%s\n"
+            % (self.__color_num, self.__color_string)
         )
         self.__color_num += 1
-        self.__color_string = '#'
+        self.__color_string = "#"
 
     def __in_color_func(self, line):
         """
@@ -127,17 +125,18 @@ class Colors:
             change the state to after the color table.
             Othewise, get a function by passing the self.__token_info to the
             state dictionary.
-            """
+        """
         # mi<mk<clrtbl-beg
         # cw<ci<red_______<nu<00
-        if self.__token_info == 'mi<mk<clrtbl-end':
-            self.__state = 'after_color_table'
+        if self.__token_info == "mi<mk<clrtbl-end":
+            self.__state = "after_color_table"
         else:
             action = self.__state_dict.get(self.__token_info)
             if action is None:
-                sys.stderr.write('in module colors.py\n'
-                'function is self.__in_color_func\n'
-                'no action for %s' % self.__token_info
+                sys.stderr.write(
+                    "in module colors.py\n"
+                    "function is self.__in_color_func\n"
+                    "no action for %s" % self.__token_info
                 )
             action(line)
 
@@ -151,15 +150,13 @@ class Colors:
         If the number is 0, that indicates no color
         """
         # cw<ci<font-color<nu<2
-        if self.__token_info == 'cw<ci<font-color':
+        if self.__token_info == "cw<ci<font-color":
             hex_num = int(line[20:-1])
             hex_num = self.__figure_num(hex_num)
             if hex_num:
-                self.__write_obj.write(
-                'cw<ci<font-color<nu<%s\n' % hex_num
-                )
-        elif line[0:5] == 'cw<bd':
-            the_index = line.find('bdr-color_')
+                self.__write_obj.write("cw<ci<font-color<nu<%s\n" % hex_num)
+        elif line[0:5] == "cw<bd":
+            the_index = line.find("bdr-color_")
             if the_index > -1:
                 line = re.sub(self.__line_color_exp, self.__sub_from_line_color, line)
             self.__write_obj.write(line)
@@ -195,23 +192,25 @@ class Colors:
             num = int(num)
         except ValueError:
             if self.__run_level > 3:
-                msg = 'can\'t make integer from string\n'
+                msg = "can't make integer from string\n"
                 raise self.__bug_handler(msg)
             else:
-                return 'bdr-color_:no-value'
+                return "bdr-color_:no-value"
         hex_num = self.__figure_num(num)
-        return 'bdr-color_:%s' % hex_num
+        return "bdr-color_:%s" % hex_num
 
     def __figure_num(self, num):
         if num == 0:
-            hex_num = 'false'
+            hex_num = "false"
         else:
             hex_num = self.__color_dict.get(num)
         if hex_num is None:
-            hex_num = '0'
+            hex_num = "0"
             if self.__run_level > 3:
-                msg = 'no value in self.__color_dict' \
-                'for key %s at line %d\n' % (num, self.__line)
+                msg = "no value in self.__color_dictfor key %s at line %d\n" % (
+                    num,
+                    self.__line,
+                )
                 raise self.__bug_handler(msg)
         return hex_num
 
@@ -240,13 +239,13 @@ class Colors:
         with open_for_read(self.__file) as read_obj:
             with open_for_write(self.__write_to) as self.__write_obj:
                 for line in read_obj:
-                    self.__line+=1
+                    self.__line += 1
                     self.__token_info = line[:16]
                     action = self.__state_dict.get(self.__state)
                     if action is None:
                         try:
-                            sys.stderr.write('no matching state in module fonts.py\n')
-                            sys.stderr.write(self.__state + '\n')
+                            sys.stderr.write("no matching state in module fonts.py\n")
+                            sys.stderr.write(self.__state + "\n")
                         except:
                             pass
                     action(line)

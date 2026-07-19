@@ -1,6 +1,7 @@
 """
 A simplified logging system
 """
+
 import logging
 
 
@@ -14,11 +15,13 @@ class CustomFormatter(logging.Formatter):
     reset = "\x1b[0m"
     fmt = "%(message)s"
 
-    FORMATS = {logging.DEBUG: grey + fmt + reset,
-               logging.INFO: grey + fmt + reset,
-               logging.WARNING: yellow + fmt + reset,
-               logging.ERROR: red + fmt + reset,
-               logging.CRITICAL: bold_red + fmt + reset}
+    FORMATS = {
+        logging.DEBUG: grey + fmt + reset,
+        logging.INFO: grey + fmt + reset,
+        logging.WARNING: yellow + fmt + reset,
+        logging.ERROR: red + fmt + reset,
+        logging.CRITICAL: bold_red + fmt + reset,
+    }
 
     def format(self, record):
         log_fmt = self.FORMATS.get(record.levelno)
@@ -30,6 +33,7 @@ class Logger:
     """
     Logger class with output on console only
     """
+
     def __init__(self, logger_name, color=False):
         """
         Initialize named logger
@@ -80,6 +84,6 @@ class Logger:
         self._log.setLevel(logging.WARNING)
 
 
-default_log = Logger('ebook-converter')()
+default_log = Logger("ebook-converter")()
 # TODO(gryf): remove this after providing value from cmd line/config
 default_log.set_verbose(2, 0)

@@ -2,24 +2,25 @@
 Misc converting functions from polyglot module.
 Most of the have something to do with converting between string and binary
 """
+
 import base64
 import binascii
 import urllib
 
 
-def as_base64_unicode(x, enc='utf-8'):
+def as_base64_unicode(x, enc="utf-8"):
     if isinstance(x, str):
         x = x.encode(enc)
-    return base64.standard_b64encode(x).decode('ascii')
+    return base64.standard_b64encode(x).decode("ascii")
 
 
 def from_base64_bytes(x):
     if isinstance(x, str):
-        x = x.encode('ascii')
+        x = x.encode("ascii")
     return base64.standard_b64decode(x)
 
 
-def as_hex_bytes(x, enc='utf-8'):
+def as_hex_bytes(x, enc="utf-8"):
     if isinstance(x, str):
         x = x.encode(enc)
     return binascii.hexlify(x)
@@ -27,11 +28,11 @@ def as_hex_bytes(x, enc='utf-8'):
 
 def from_hex_bytes(x):
     if isinstance(x, str):
-        x = x.encode('ascii')
+        x = x.encode("ascii")
     return binascii.unhexlify(x)
 
 
-def as_bytes(x, encoding='utf-8'):
+def as_bytes(x, encoding="utf-8"):
     if isinstance(x, str):
         return x.encode(encoding)
     if isinstance(x, bytes):
@@ -43,7 +44,7 @@ def as_bytes(x, encoding='utf-8'):
     return str(x).encode(encoding)
 
 
-def unquote(x, encoding='utf-8', errors='replace'):
+def unquote(x, encoding="utf-8", errors="replace"):
     # TODO(gryf): this works like that: if x is a binary, convert it to
     # string using encoding and make unquote. After that make it binary again.
     # If x is string, just pass it to the unquote.

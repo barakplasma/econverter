@@ -36,22 +36,23 @@ class Plugin(object):
         * :meth:`load_resources`
 
     """
+
     #: List of platforms this plugin works on.
     #: For example: ``['windows', 'osx', 'linux']``
     supported_platforms = []
 
     #: The name of this plugin. You must set it something other
     #: than Trivial Plugin for it to work.
-    name = 'Trivial Plugin'
+    name = "Trivial Plugin"
 
     #: The version of this plugin as a 3-tuple (major, minor, revision)
     version = (1, 0, 0)
 
     #: A short string describing what this plugin does
-    description = 'Does absolutely nothing'
+    description = "Does absolutely nothing"
 
     #: The author of this plugin
-    author = 'Unknown'
+    author = "Unknown"
 
     #: When more than one plugin exists for a filetype,
     #: the plugins are run in order of decreasing priority.
@@ -69,7 +70,7 @@ class Plugin(object):
 
     #: The type of this plugin. Used for categorizing plugins in the
     #: GUI
-    type = 'Base'
+    type = "Base"
 
     def __init__(self, plugin_path):
         self.plugin_path = plugin_path
@@ -138,9 +139,9 @@ class Plugin(object):
 
         """
         if self.plugin_path is None:
-            raise ValueError('This plugin was not loaded from a ZIP file')
+            raise ValueError("This plugin was not loaded from a ZIP file")
         ans = {}
-        with zipfile.ZipFile(self.plugin_path, 'r') as zf:
+        with zipfile.ZipFile(self.plugin_path, "r") as zf:
             for candidate in zf.namelist():
                 if candidate in names:
                     ans[candidate] = zf.read(candidate)
@@ -193,11 +194,11 @@ class Plugin(object):
         """
         if self.plugin_path is not None:
             from ebook_converter.utils.zipfile import ZipFile
+
             zf = ZipFile(self.plugin_path)
-            extensions = {x.rpartition('.')[-1].lower() for x in
-                          zf.namelist()}
+            extensions = {x.rpartition(".")[-1].lower() for x in zf.namelist()}
             zip_safe = True
-            for ext in ('pyd', 'so', 'dll', 'dylib'):
+            for ext in ("pyd", "so", "dll", "dylib"):
                 if ext in extensions:
                     zip_safe = False
                     break
@@ -206,19 +207,19 @@ class Plugin(object):
                 self.sys_insertion_path = self.plugin_path
             else:
                 from ebook_converter.ptempfile import TemporaryDirectory
-                self._sys_insertion_tdir = TemporaryDirectory('plugin_unzip')
-                self.sys_insertion_path = (self._sys_insertion_tdir.
-                                           __enter__(*args))
+
+                self._sys_insertion_tdir = TemporaryDirectory("plugin_unzip")
+                self.sys_insertion_path = self._sys_insertion_tdir.__enter__(*args)
                 zf.extractall(self.sys_insertion_path)
                 sys.path.insert(0, self.sys_insertion_path)
             zf.close()
 
     def __exit__(self, *args):
-        ip = getattr(self, 'sys_insertion_path', None),
-        it = getattr(self, '_sys_insertion_tdir', None)
+        ip = (getattr(self, "sys_insertion_path", None),)
+        it = getattr(self, "_sys_insertion_tdir", None)
         if ip in sys.path:
             sys.path.remove(ip)
-        if hasattr(it, '__exit__'):
+        if hasattr(it, "__exit__"):
             it.__exit__(*args)
 
     def cli_main(self, args):
@@ -227,8 +228,9 @@ class Plugin(object):
         interface. It is called when the user does: calibre-debug -r "Plugin
         Name". Any arguments passed are present in the args variable.
         """
-        raise NotImplementedError('The %s plugin has no command line interface'
-                                  % self.name)
+        raise NotImplementedError(
+            "The %s plugin has no command line interface" % self.name
+        )
 
 
 class FileTypePlugin(Plugin):
@@ -257,7 +259,7 @@ class FileTypePlugin(Plugin):
     #: on the final file produced by the conversion output plugin.
     on_postprocess = False
 
-    type = 'File type'
+    type = "File type"
 
     def run(self, path_to_ebook):
         """
@@ -320,15 +322,16 @@ class MetadataReaderPlugin(Plugin):
     """
     A plugin that implements reading metadata from a set of file types.
     """
+
     #: Set of file types for which this plugin should be run.
     #: For example: ``set(['lit', 'mobi', 'prc'])``
     file_types = set()
 
-    supported_platforms = ['osx', 'linux']
+    supported_platforms = ["osx", "linux"]
     version = numeric_version
-    author = 'Kovid Goyal'
+    author = "Kovid Goyal"
 
-    type = 'Metadata reader'
+    type = "Metadata reader"
 
     def __init__(self, *args, **kwargs):
         Plugin.__init__(self, *args, **kwargs)
@@ -352,15 +355,16 @@ class MetadataWriterPlugin(Plugin):
     """
     A plugin that implements reading metadata from a set of file types.
     """
+
     #: Set of file types for which this plugin should be run.
     #: For example: ``set(['lit', 'mobi', 'prc'])``
     file_types = set()
 
-    supported_platforms = ['osx', 'linux']
+    supported_platforms = ["osx", "linux"]
     version = numeric_version
-    author = 'Kovid Goyal'
+    author = "Kovid Goyal"
 
-    type = 'Metadata writer'
+    type = "Metadata writer"
 
     def __init__(self, *args, **kwargs):
         Plugin.__init__(self, *args, **kwargs)
@@ -391,7 +395,7 @@ class CatalogPlugin(Plugin):
     #: For example: 'epub' or 'xml'
     file_types = set()
 
-    type = 'Catalog generator'
+    type = "Catalog generator"
 
     #: CLI parser options specific to this plugin, declared as namedtuple
     #: Option:
@@ -411,8 +415,8 @@ class CatalogPlugin(Plugin):
         """
         Custom fields sort after standard fields
         """
-        if key.startswith('#'):
-            return '~%s' % key[1:]
+        if key.startswith("#"):
+            return "~%s" % key[1:]
         else:
             return key
 
@@ -427,42 +431,60 @@ class CatalogPlugin(Plugin):
 
     def get_output_fields(self, db, opts):
         # Return a list of requested fields
-        all_std_fields = {'author_sort', 'authors', 'comments', 'cover',
-                          'formats', 'id', 'isbn', 'library_name', 'ondevice',
-                          'pubdate', 'publisher', 'rating', 'series_index',
-                          'series', 'size', 'tags', 'timestamp', 'title_sort',
-                          'title', 'uuid', 'languages', 'identifiers'}
+        all_std_fields = {
+            "author_sort",
+            "authors",
+            "comments",
+            "cover",
+            "formats",
+            "id",
+            "isbn",
+            "library_name",
+            "ondevice",
+            "pubdate",
+            "publisher",
+            "rating",
+            "series_index",
+            "series",
+            "size",
+            "tags",
+            "timestamp",
+            "title_sort",
+            "title",
+            "uuid",
+            "languages",
+            "identifiers",
+        }
         all_custom_fields = set(db.custom_field_keys())
         for field in list(all_custom_fields):
             fm = db.field_metadata[field]
-            if fm['datatype'] == 'series':
-                all_custom_fields.add(field+'_index')
+            if fm["datatype"] == "series":
+                all_custom_fields.add(field + "_index")
         all_fields = all_std_fields.union(all_custom_fields)
 
-        if opts.fields != 'all':
+        if opts.fields != "all":
             # Make a list from opts.fields
-            of = [x.strip() for x in opts.fields.split(',')]
+            of = [x.strip() for x in opts.fields.split(",")]
             requested_fields = set(of)
 
             # Validate requested_fields
             if requested_fields - all_fields:
                 from ebook_converter.library import current_library_name
+
                 invalid_fields = sorted(list(requested_fields - all_fields))
-                print("invalid --fields specified: %s" %
-                      ', '.join(invalid_fields))
-                print("available fields in '%s': %s" %
-                      (current_library_name(),
-                       ', '.join(sorted(list(all_fields)))))
-                raise ValueError("unable to generate catalog with specified "
-                                 "fields")
+                print("invalid --fields specified: %s" % ", ".join(invalid_fields))
+                print(
+                    "available fields in '%s': %s"
+                    % (current_library_name(), ", ".join(sorted(list(all_fields))))
+                )
+                raise ValueError("unable to generate catalog with specified fields")
 
             fields = [x for x in of if x in all_fields]
         else:
             fields = sorted(all_fields, key=self._field_sorter)
 
-        if (not opts.connected_device['is_device_connected'] and
-                'ondevice' in fields):
-            fields.pop(int(fields.index('ondevice')))
+        if not opts.connected_device["is_device_connected"] and "ondevice" in fields:
+            fields.pop(int(fields.index("ondevice")))
 
         return fields
 
@@ -476,9 +498,9 @@ class CatalogPlugin(Plugin):
 
         # TODO(gryf): remove this entire abomination in favor of map and lazy
         # importing if needed.
-        from ebook_converter.customize.builtins import plugins as \
-            builtin_plugins
-        if not type(self) in builtin_plugins:
+        from ebook_converter.customize.builtins import plugins as builtin_plugins
+
+        if type(self) not in builtin_plugins:
             raise ValueError(f'Plugin type "{self.__str__}" not found')
 
     def run(self, path_to_output, opts, db, ids, notification=None):
@@ -497,15 +519,16 @@ class CatalogPlugin(Plugin):
         :param db: A LibraryDatabase2 object
         """
         # Default implementation does nothing
-        raise NotImplementedError('CatalogPlugin.generate_catalog() default '
-                                  'method, should be overridden in subclass')
+        raise NotImplementedError(
+            "CatalogPlugin.generate_catalog() default "
+            "method, should be overridden in subclass"
+        )
 
 
 class InterfaceActionBase(Plugin):
-
-    supported_platforms = ['osx', 'linux']
-    author = 'Kovid Goyal'
-    type = 'User interface action'
+    supported_platforms = ["osx", "linux"]
+    author = "Kovid Goyal"
+    type = "User interface action"
     can_be_disabled = False
 
     actual_plugin = None
@@ -520,15 +543,15 @@ class InterfaceActionBase(Plugin):
         """
         ac = self.actual_plugin_
         if ac is None:
-            mod, cls = self.actual_plugin.split(':')
-            ac = getattr(importlib.import_module(mod),
-                         cls)(gui, self.site_customization)
+            mod, cls = self.actual_plugin.split(":")
+            ac = getattr(importlib.import_module(mod), cls)(
+                gui, self.site_customization
+            )
             self.actual_plugin_ = ac
         return ac
 
 
 class PreferencesPlugin(Plugin):
-
     """
     A plugin representing a widget displayed in the Preferences dialog.
 
@@ -536,9 +559,9 @@ class PreferencesPlugin(Plugin):
     various fields of the plugin control how it is categorized in the UI.
     """
 
-    supported_platforms = ['osx', 'linux']
-    author = 'Kovid Goyal'
-    type = 'Preferences'
+    supported_platforms = ["osx", "linux"]
+    author = "Kovid Goyal"
+    type = "Preferences"
     can_be_disabled = False
 
     #: Import path to module that contains a class named ConfigWidget
@@ -578,23 +601,22 @@ class PreferencesPlugin(Plugin):
         The default implementation uses :attr:`config_widget` to instantiate
         the widget.
         """
-        base, _, wc = self.config_widget.partition(':')
+        base, _, wc = self.config_widget.partition(":")
         if not wc:
-            wc = 'ConfigWidget'
+            wc = "ConfigWidget"
         base = importlib.import_module(base)
         widget = getattr(base, wc)
         return widget(parent)
 
 
 class StoreBase(Plugin):
-
-    supported_platforms = ['osx', 'linux']
-    author = 'John Schember'
-    type = 'Store'
+    supported_platforms = ["osx", "linux"]
+    author = "John Schember"
+    type = "Store"
     # Information about the store. Should be in the primary language
     # of the store. This should not be translatable when set by
     # a subclass.
-    description = 'An e-book store.'
+    description = "An e-book store."
     minimum_calibre_version = (0, 8, 0)
     version = (1, 0, 1)
 
@@ -604,7 +626,7 @@ class StoreBase(Plugin):
     drm_free_only = False
     # This is the 2 letter country code for the corporate
     # headquarters of the store.
-    headquarters = ''
+    headquarters = ""
     # All formats the store distributes e-books in.
     formats = []
     # Is this store on an affiliate program?
@@ -614,30 +636,30 @@ class StoreBase(Plugin):
         """
         This method must return the actual interface action plugin object.
         """
-        mod, cls = self.actual_plugin.split(':')
-        self.actual_plugin_object = getattr(importlib.import_module(mod),
-                                            cls)(gui, self.name)
+        mod, cls = self.actual_plugin.split(":")
+        self.actual_plugin_object = getattr(importlib.import_module(mod), cls)(
+            gui, self.name
+        )
         return self.actual_plugin_object
 
     def customization_help(self, gui=False):
-        if getattr(self, 'actual_plugin_object', None) is not None:
+        if getattr(self, "actual_plugin_object", None) is not None:
             return self.actual_plugin_object.customization_help(gui)
         raise NotImplementedError()
 
     def config_widget(self):
-        if getattr(self, 'actual_plugin_object', None) is not None:
+        if getattr(self, "actual_plugin_object", None) is not None:
             return self.actual_plugin_object.config_widget()
         raise NotImplementedError()
 
     def save_settings(self, config_widget):
-        if getattr(self, 'actual_plugin_object', None) is not None:
+        if getattr(self, "actual_plugin_object", None) is not None:
             return self.actual_plugin_object.save_settings(config_widget)
         raise NotImplementedError()
 
 
 class EditBookToolPlugin(Plugin):
-
-    type = 'Edit book tool'
+    type = "Edit book tool"
     minimum_calibre_version = (1, 46, 0)
 
 
@@ -647,7 +669,8 @@ class LibraryClosedPlugin(Plugin):
     when the library is changed, or when a library is used in some other way.
     At the moment these plugins won't be called by the CLI functions.
     """
-    type = 'Library closed'
+
+    type = "Library closed"
 
     # minimum version 2.54 because that is when support was added
     minimum_calibre_version = (2, 54, 0)
@@ -659,5 +682,6 @@ class LibraryClosedPlugin(Plugin):
         The plugin must run to completion. It must not use the GUI, threads, or
         any signals.
         """
-        raise NotImplementedError('LibraryClosedPlugin '
-                                  'run method must be overridden in subclass')
+        raise NotImplementedError(
+            "LibraryClosedPlugin run method must be overridden in subclass"
+        )

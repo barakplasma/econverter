@@ -2,6 +2,7 @@
 Make strings safe for use as ASCII filenames, while trying to preserve as much
 meaning as possible.
 """
+
 import errno
 import os
 import re
@@ -9,13 +10,12 @@ import shutil
 from math import ceil
 
 from ebook_converter import constants_old
-from ebook_converter.constants_old import (filesystem_encoding,
-                                           preferred_encoding)
+from ebook_converter.constants_old import filesystem_encoding, preferred_encoding
 from ebook_converter.utils import encoding as uenc
 from ebook_converter.utils.localization import get_udc
 
 
-def sanitize_file_name(name, substitute='_'):
+def sanitize_file_name(name, substitute="_"):
     """
     Sanitize the filename `name`. All invalid characters are replaced by
     `substitute`. The set of invalid characters is the union of the invalid
@@ -27,25 +27,31 @@ def sanitize_file_name(name, substitute='_'):
     """
 
     if isinstance(name, bytes):
-        name = name.decode(constants_old.filesystem_encoding, 'replace')
+        name = name.decode(constants_old.filesystem_encoding, "replace")
     if isinstance(substitute, bytes):
-        substitute = substitute.decode(constants_old.filesystem_encoding,
-                                       'replace')
-    chars = (substitute
-             if c in set(('\\', '|', '?', '*', '<', '"', ':', '>', '+', '/') +
-                         tuple(map(chr, range(32)))) else c for c in name)
-    one = ''.join(chars)
-    one = re.sub(r'\s', ' ', one).strip()
+        substitute = substitute.decode(constants_old.filesystem_encoding, "replace")
+    chars = (
+        substitute
+        if c
+        in set(
+            ("\\", "|", "?", "*", "<", '"', ":", ">", "+", "/")
+            + tuple(map(chr, range(32)))
+        )
+        else c
+        for c in name
+    )
+    one = "".join(chars)
+    one = re.sub(r"\s", " ", one).strip()
     bname, ext = os.path.splitext(one)
-    one = re.sub(r'^\.+$', '_', bname)
-    one = one.replace('..', substitute)
+    one = re.sub(r"^\.+$", "_", bname)
+    one = one.replace("..", substitute)
     one += ext
     # Windows doesn't like path components that end with a period or space
-    if one and one[-1] in ('.', ' '):
-        one = one[:-1]+'_'
+    if one and one[-1] in (".", " "):
+        one = one[:-1] + "_"
     # Names starting with a period are hidden on Unix
-    if one.startswith('.'):
-        one = '_' + one[1:]
+    if one.startswith("."):
+        one = "_" + one[1:]
     return one
 
 
@@ -55,18 +61,18 @@ def ascii_text(orig):
         ascii = udc.decode(orig)
     except Exception:
         if isinstance(orig, str):
-            orig = orig.encode('ascii', 'replace')
-        ascii = orig.decode(preferred_encoding, 'replace')
+            orig = orig.encode("ascii", "replace")
+        ascii = orig.decode(preferred_encoding, "replace")
     if isinstance(ascii, bytes):
-        ascii = ascii.decode('ascii', 'replace')
+        ascii = ascii.decode("ascii", "replace")
     return ascii
 
 
-def ascii_filename(orig, substitute='_'):
+def ascii_filename(orig, substitute="_"):
     if isinstance(substitute, bytes):
         substitute = substitute.decode(filesystem_encoding)
-    orig = ascii_text(orig).replace('?', '_')
-    ans = ''.join(x if ord(x) >= 32 else substitute for x in orig)
+    orig = ascii_text(orig).replace("?", "_")
+    ans = "".join(x if ord(x) >= 32 else substitute for x in orig)
     return sanitize_file_name(ans, substitute=substitute)
 
 
@@ -74,7 +80,7 @@ def shorten_component(s, by_what):
     l = len(s)
     if l < by_what:
         return s
-    l = (l - by_what)//2
+    l = (l - by_what) // 2
     if l <= 0:
         return s
     return s[:l] + s[-l:]
@@ -83,7 +89,7 @@ def shorten_component(s, by_what):
 def limit_component(x, limit=254):
     # windows and macs use utf-16 codepoints for length, linux uses arbitrary
     # binary data, but we will assume utf-8
-    filename_encoding_for_length = 'utf-8'
+    filename_encoding_for_length = "utf-8"
 
     def encoded_length():
         q = x if isinstance(x, bytes) else x.encode(filename_encoding_for_length)
@@ -104,37 +110,37 @@ def shorten_components_to(length, components, more_to_take=0, last_has_extension
         return components
     deltas = []
     for x in components:
-        pct = len(x)/float(len(filepath))
-        deltas.append(int(ceil(pct*extra)))
+        pct = len(x) / float(len(filepath))
+        deltas.append(int(ceil(pct * extra)))
     ans = []
 
     for i, x in enumerate(components):
         delta = deltas[i]
         if delta > len(x):
-            r = x[0] if x is components[-1] else ''
+            r = x[0] if x is components[-1] else ""
         else:
             if last_has_extension and x is components[-1]:
                 b, e = os.path.splitext(x)
-                if e == '.':
-                    e = ''
-                r = shorten_component(b, delta)+e
-                if r.startswith('.'):
-                    r = x[0]+r
+                if e == ".":
+                    e = ""
+                r = shorten_component(b, delta) + e
+                if r.startswith("."):
+                    r = x[0] + r
             else:
                 r = shorten_component(x, delta)
             r = r.strip()
             if not r:
-                r = x.strip()[0] if x.strip() else 'x'
+                r = x.strip()[0] if x.strip() else "x"
         ans.append(r)
     if len(os.sep.join(ans)) > length:
-        return shorten_components_to(length, components, more_to_take+2)
+        return shorten_components_to(length, components, more_to_take + 2)
     return ans
 
 
 def find_executable_in_path(name, path=None):
     if path is None:
-        path = os.environ.get('PATH', '')
-    exts = ('',)
+        path = os.environ.get("PATH", "")
+    exts = ("",)
     path = path.split(os.pathsep)
     for x in path:
         for ext in exts:
@@ -144,27 +150,29 @@ def find_executable_in_path(name, path=None):
 
 
 def is_case_sensitive(path):
-    '''
+    """
     Return True if the filesystem is case sensitive.
 
     path must be the path to an existing directory. You must have permission
     to create and delete files in this directory. The results of this test
     apply to the filesystem containing the directory in path.
-    '''
+    """
     is_case_sensitive = False
-    name1, name2 = ('calibre_test_case_sensitivity.txt',
-                    'calibre_TesT_CaSe_sensitiVitY.Txt')
+    name1, name2 = (
+        "calibre_test_case_sensitivity.txt",
+        "calibre_TesT_CaSe_sensitiVitY.Txt",
+    )
     f1, f2 = os.path.join(path, name1), os.path.join(path, name2)
     if os.path.exists(f1):
         os.remove(f1)
-    open(f1, 'w').close()
+    open(f1, "w").close()
     is_case_sensitive = not os.path.exists(f2)
     os.remove(f1)
     return is_case_sensitive
 
 
-def case_preserving_open_file(path, mode='wb', mkdir_mode=0o777):
-    '''
+def case_preserving_open_file(path, mode="wb", mkdir_mode=0o777):
+    """
     Open the file pointed to by path with the specified mode. If any
     directories in path do not exist, they are created. Returns the
     opened file object and the path to the opened file object. This path is
@@ -177,22 +185,22 @@ def case_preserving_open_file(path, mode='wb', mkdir_mode=0o777):
 
     mkdir_mode specifies the mode with which any missing directories in path
     are created.
-    '''
+    """
     if isinstance(path, bytes):
         path = path.decode(filesystem_encoding)
 
     path = os.path.abspath(path)
 
-    sep = uenc.force_unicode(os.sep, 'ascii')
+    sep = uenc.force_unicode(os.sep, "ascii")
 
     if path.endswith(sep):
         path = path[:-1]
     if not path:
-        raise ValueError('Path must not point to root')
+        raise ValueError("Path must not point to root")
 
     components = path.split(sep)
     if not components:
-        raise ValueError('Invalid path: %r'%path)
+        raise ValueError("Invalid path: %r" % path)
 
     cpath = sep
 
@@ -245,7 +253,7 @@ def case_preserving_open_file(path, mode='wb', mkdir_mode=0o777):
 
 
 def samefile(src, dst):
-    '''
+    """
     Check if two paths point to the same actual file on the filesystem. Handles
     symlinks, case insensitivity, mapped drives, etc.
 
@@ -254,8 +262,8 @@ def samefile(src, dst):
     Note: On windows will return True if the two string are identical (up to
     case) even if the file does not exist. This is because I have no way of
     knowing how reliable the GetFileInformationByHandle method is.
-    '''
-    if hasattr(os.path, 'samefile'):
+    """
+    if hasattr(os.path, "samefile"):
         # Unix
         try:
             return os.path.samefile(src, dst)
@@ -263,8 +271,9 @@ def samefile(src, dst):
             return False
 
     # All other platforms: check for same pathname.
-    samestring = (os.path.normcase(os.path.abspath(src)) ==
-            os.path.normcase(os.path.abspath(dst)))
+    samestring = os.path.normcase(os.path.abspath(src)) == os.path.normcase(
+        os.path.abspath(dst)
+    )
     return samestring
 
 
@@ -273,21 +282,21 @@ def hardlink_file(src, dest):
 
 
 def nlinks_file(path):
-    ' Return number of hardlinks to the file '
+    "Return number of hardlinks to the file"
     return os.stat(path).st_nlink
 
 
 def atomic_rename(oldpath, newpath):
-    '''Replace the file newpath with the file oldpath. Can fail if the files
+    """Replace the file newpath with the file oldpath. Can fail if the files
     are on different volumes. If succeeds, guaranteed to be atomic. newpath may
-    or may not exist. If it exists, it is replaced. '''
+    or may not exist. If it exists, it is replaced."""
     os.rename(oldpath, newpath)
 
 
 def remove_dir_if_empty(path, ignore_metadata_caches=False):
-    ''' Remove a directory if it is empty or contains only the folder metadata
+    """Remove a directory if it is empty or contains only the folder metadata
     caches from different OSes. To delete the folder if it contains only
-    metadata caches, set ignore_metadata_caches to True.'''
+    metadata caches, set ignore_metadata_caches to True."""
     try:
         os.rmdir(path)
     except OSError as e:
@@ -298,11 +307,12 @@ def remove_dir_if_empty(path, ignore_metadata_caches=False):
                 try:
                     found = False
                     for x in os.listdir(path):
-                        if x.lower() in {'.ds_store', 'thumbs.db'}:
+                        if x.lower() in {".ds_store", "thumbs.db"}:
                             found = True
                             x = os.path.join(path, x)
                             if os.path.isdir(x):
                                 import shutil
+
                                 shutil.rmtree(x)
                             else:
                                 os.remove(x)
@@ -319,20 +329,28 @@ expanduser = os.path.expanduser
 
 def format_permissions(st_mode):
     import stat
-    for func, letter in (x.split(':') for x in 'REG:- DIR:d BLK:b CHR:c FIFO:p LNK:l SOCK:s'.split()):
-        if getattr(stat, 'S_IS' + func)(st_mode):
+
+    for func, letter in (
+        x.split(":") for x in "REG:- DIR:d BLK:b CHR:c FIFO:p LNK:l SOCK:s".split()
+    ):
+        if getattr(stat, "S_IS" + func)(st_mode):
             break
     else:
-        letter = '?'
-    rwx = ('---', '--x', '-w-', '-wx', 'r--', 'r-x', 'rw-', 'rwx')
-    ans = [letter] + list(rwx[(st_mode >> 6) & 7]) + list(rwx[(st_mode >> 3) & 7]) + list(rwx[(st_mode & 7)])
+        letter = "?"
+    rwx = ("---", "--x", "-w-", "-wx", "r--", "r-x", "rw-", "rwx")
+    ans = (
+        [letter]
+        + list(rwx[(st_mode >> 6) & 7])
+        + list(rwx[(st_mode >> 3) & 7])
+        + list(rwx[(st_mode & 7)])
+    )
     if st_mode & stat.S_ISUID:
-        ans[3] = 's' if (st_mode & stat.S_IXUSR) else 'S'
+        ans[3] = "s" if (st_mode & stat.S_IXUSR) else "S"
     if st_mode & stat.S_ISGID:
-        ans[6] = 's' if (st_mode & stat.S_IXGRP) else 'l'
+        ans[6] = "s" if (st_mode & stat.S_IXGRP) else "l"
     if st_mode & stat.S_ISVTX:
-        ans[9] = 't' if (st_mode & stat.S_IXUSR) else 'T'
-    return ''.join(ans)
+        ans[9] = "t" if (st_mode & stat.S_IXUSR) else "T"
+    return "".join(ans)
 
 
 def copyfile(src, dest):

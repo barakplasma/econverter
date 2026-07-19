@@ -1,8 +1,8 @@
 import collections
 
 
-__license__ = 'GPL v3'
-__copyright__ = '2015, Kovid Goyal <kovid at kovidgoyal.net>'
+__license__ = "GPL v3"
+__copyright__ = "2015, Kovid Goyal <kovid at kovidgoyal.net>"
 
 SLICE_ALL = slice(None)
 
@@ -16,7 +16,7 @@ def is_iterable(obj):
     Strings, however, should be considered as atomic values to look up, not
     iterables.
     """
-    return hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes))
+    return hasattr(obj, "__iter__") and not isinstance(obj, (str, bytes))
 
 
 class OrderedSet(collections.abc.MutableSet):
@@ -24,6 +24,7 @@ class OrderedSet(collections.abc.MutableSet):
     An OrderedSet is a custom MutableSet that remembers its order, so that
     every entry has an index that can be looked up.
     """
+
     def __init__(self, iterable=None):
         self.items = []
         self.map = {}
@@ -51,7 +52,7 @@ class OrderedSet(collections.abc.MutableSet):
         """
         if index == SLICE_ALL:
             return self
-        elif hasattr(index, '__index__') or isinstance(index, slice):
+        elif hasattr(index, "__index__") or isinstance(index, slice):
             result = self.items[index]
             if isinstance(result, list):
                 return OrderedSet(result)
@@ -60,8 +61,7 @@ class OrderedSet(collections.abc.MutableSet):
         elif is_iterable(index):
             return OrderedSet([self.items[i] for i in index])
         else:
-            raise TypeError("Don't know how to index an OrderedSet by %r" %
-                    index)
+            raise TypeError("Don't know how to index an OrderedSet by %r" % index)
 
     def copy(self):
         return OrderedSet(self)
@@ -117,8 +117,8 @@ class OrderedSet(collections.abc.MutableSet):
 
     def __repr__(self):
         if not self:
-            return '%s()' % (self.__class__.__name__,)
-        return '%s(%r)' % (self.__class__.__name__, list(self))
+            return "%s()" % (self.__class__.__name__,)
+        return "%s(%r)" % (self.__class__.__name__, list(self))
 
     def __eq__(self, other):
         if isinstance(other, OrderedSet):

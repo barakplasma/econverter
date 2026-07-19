@@ -11,8 +11,8 @@ from ebook_converter.ebooks.oeb.polish.toc import node_from_loc
 from ebook_converter.ebooks.oeb.polish.replace import LinkRebaser
 
 
-__license__ = 'GPL v3'
-__copyright__ = '2013, Kovid Goyal <kovid at kovidgoyal.net>'
+__license__ = "GPL v3"
+__copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 class AbortError(ValueError):
@@ -21,61 +21,61 @@ class AbortError(ValueError):
 
 def in_table(node):
     while node is not None:
-        if node.tag.endswith('}table'):
+        if node.tag.endswith("}table"):
             return True
         node = node.getparent()
     return False
 
 
 def adjust_split_point(split_point, log):
-    '''
+    """
     Move the split point up its ancestor chain if it has no content
     before it. This handles the common case:
     <div id="chapter1"><h2>Chapter 1</h2>...</div> with a page break on the
     h2.
-    '''
+    """
     sp = split_point
     while True:
         parent = sp.getparent()
         if (
-            parent is None or
-            parse_utils.barename(parent.tag) in {'body', 'html'} or
-            (parent.text and parent.text.strip()) or
-            parent.index(sp) > 0
+            parent is None
+            or parse_utils.barename(parent.tag) in {"body", "html"}
+            or (parent.text and parent.text.strip())
+            or parent.index(sp) > 0
         ):
             break
         sp = parent
 
     if sp is not split_point:
-        log.debug('Adjusted split point to ancestor')
+        log.debug("Adjusted split point to ancestor")
 
     return sp
 
 
 def get_body(root):
-    return root.find('h:body', namespaces=const.XPNSMAP)
+    return root.find("h:body", namespaces=const.XPNSMAP)
 
 
 def do_split(split_point, log, before=True):
-    '''
+    """
     Split tree into a *before* and an *after* tree at ``split_point``.
 
     :param split_point: The Element at which to split
     :param before: If True tree is split before split_point, otherwise after split_point
     :return: before_tree, after_tree
-    '''
+    """
     if before:
         # We cannot adjust for after since moving an after split point to a
         # parent will cause breakage if the parent contains any content
         # after the original split point
         split_point = adjust_split_point(split_point, log)
-    tree         = split_point.getroottree()
-    path         = tree.getpath(split_point)
+    tree = split_point.getroottree()
+    path = tree.getpath(split_point)
 
-    tree, tree2  = copy.deepcopy(tree), copy.deepcopy(tree)
-    root, root2  = tree.getroot(), tree2.getroot()
-    body, body2  = map(get_body, (root, root2))
-    split_point  = root.xpath(path)[0]
+    tree, tree2 = copy.deepcopy(tree), copy.deepcopy(tree)
+    root, root2 = tree.getroot(), tree2.getroot()
+    body, body2 = map(get_body, (root, root2))
+    split_point = root.xpath(path)[0]
     split_point2 = root2.xpath(path)[0]
 
     def nix_element(elem, top=True):
@@ -86,7 +86,7 @@ def do_split(split_point, log, before=True):
             parent.remove(elem)
         else:
             index = parent.index(elem)
-            parent[index:index+1] = list(elem.iterchildren())
+            parent[index : index + 1] = list(elem.iterchildren())
 
     # Tree 1
     hit_split_point = False
@@ -102,7 +102,7 @@ def do_split(split_point, log, before=True):
                 # Tree 1
                 keep_descendants = True
                 # We want the split point element, but not its tail
-                elem.tail = '\n'
+                elem.tail = "\n"
 
             continue
         if hit_split_point:
@@ -117,7 +117,7 @@ def do_split(split_point, log, before=True):
             nix_element(elem)
 
     # Tree 2
-    ancestors = frozenset(base.XPath('ancestor::*')(split_point2))
+    ancestors = frozenset(base.XPath("ancestor::*")(split_point2))
     for elem in tuple(body2.iterdescendants()):
         if elem is split_point2:
             if not before:
@@ -128,10 +128,10 @@ def do_split(split_point, log, before=True):
                     parent = elem.getparent()
                     idx = parent.index(elem)
                     if idx == 0:
-                        parent.text = (parent.text or '') + tail
+                        parent.text = (parent.text or "") + tail
                     else:
-                        sib = parent[idx-1]
-                        sib.tail = (sib.tail or '') + tail
+                        sib = parent[idx - 1]
+                        sib.tail = (sib.tail or "") + tail
                 # Remove the element itself
                 nix_element(elem)
             break
@@ -139,17 +139,16 @@ def do_split(split_point, log, before=True):
             # We have to preserve the ancestors as they could have CSS
             # styles that are inherited/applicable, like font or
             # width. So we only remove the text, if any.
-            elem.text = '\n'
+            elem.text = "\n"
         else:
             nix_element(elem, top=False)
 
-    body2.text = '\n'
+    body2.text = "\n"
 
     return tree, tree2
 
 
 class SplitLinkReplacer(object):
-
     def __init__(self, base, bottom_anchors, top_name, bottom_name, container):
         self.bottom_anchors, self.bottom_name = bottom_anchors, bottom_name
         self.container, self.top_name = container, top_name
@@ -157,20 +156,24 @@ class SplitLinkReplacer(object):
         self.replaced = False
 
     def __call__(self, url):
-        if url and url.startswith('#'):
+        if url and url.startswith("#"):
             return url
         name = self.container.href_to_name(url, self.base)
         if name != self.top_name:
             return url
         purl = urllib.parse.urlparse(url)
         if purl.fragment and purl.fragment in self.bottom_anchors:
-            url = self.container.name_to_href(self.bottom_name, self.base) + '#' + purl.fragment
+            url = (
+                self.container.name_to_href(self.bottom_name, self.base)
+                + "#"
+                + purl.fragment
+            )
             self.replaced = True
         return url
 
 
 def split(container, name, loc_or_xpath, before=True, totals=None):
-    '''
+    """
     Split the file specified by name at the position specified by loc_or_xpath.
     Splitting automatically migrates all links and references to the affected
     files.
@@ -180,7 +183,7 @@ def split(container, name, loc_or_xpath, before=True, totals=None):
         implement splitting in the preview panel.
     :param before: If True the split occurs before the identified element otherwise after it.
     :param totals: Used internally
-    '''
+    """
 
     root = container.parsed(name)
     if isinstance(loc_or_xpath, str):
@@ -198,32 +201,38 @@ def split(container, name, loc_or_xpath, before=True, totals=None):
             try:
                 split_point = node_from_loc(root, loc_or_xpath, totals=totals)
             except MalformedMarkup:
-                raise MalformedMarkup('The file %s has malformed markup. Try '
-                                      'running the Fix HTML tool before '
-                                      'splitting' % name)
+                raise MalformedMarkup(
+                    "The file %s has malformed markup. Try "
+                    "running the Fix HTML tool before "
+                    "splitting" % name
+                )
             container.replace(name, root)
     if in_table(split_point):
-        raise AbortError('Cannot split inside tables')
-    if split_point.tag.endswith('}body'):
-        raise AbortError('Cannot split on the <body> tag')
+        raise AbortError("Cannot split inside tables")
+    if split_point.tag.endswith("}body"):
+        raise AbortError("Cannot split on the <body> tag")
     tree1, tree2 = do_split(split_point, container.log, before=before)
     root1, root2 = tree1.getroot(), tree2.getroot()
-    anchors_in_top = frozenset(root1.xpath('//*/@id')) | frozenset(root1.xpath('//*/@name')) | {''}
-    anchors_in_bottom = frozenset(root2.xpath('//*/@id')) | frozenset(root2.xpath('//*/@name'))
-    base, ext = name.rpartition('.')[0::2]
-    base = re.sub(r'_split\d+$', '', base)
+    anchors_in_top = (
+        frozenset(root1.xpath("//*/@id")) | frozenset(root1.xpath("//*/@name")) | {""}
+    )
+    anchors_in_bottom = frozenset(root2.xpath("//*/@id")) | frozenset(
+        root2.xpath("//*/@name")
+    )
+    base, ext = name.rpartition(".")[0::2]
+    base = re.sub(r"_split\d+$", "", base)
     nname, s = None, 0
     while not nname or container.exists(nname):
         s += 1
-        nname = '%s_split%d.%s' % (base, s, ext)
+        nname = "%s_split%d.%s" % (base, s, ext)
     manifest_item = container.generate_item(nname, media_type=container.mime_map[name])
-    bottom_name = container.href_to_name(manifest_item.get('href'), container.opf_name)
+    bottom_name = container.href_to_name(manifest_item.get("href"), container.opf_name)
 
     # Fix links in the split trees
     for r in (root1, root2):
-        for a in r.xpath('//*[@href]'):
-            url = a.get('href')
-            if url.startswith('#'):
+        for a in r.xpath("//*[@href]"):
+            url = a.get("href")
+            if url.startswith("#"):
                 fname = name
             else:
                 fname = container.href_to_name(url, name)
@@ -231,75 +240,92 @@ def split(container, name, loc_or_xpath, before=True, totals=None):
                 purl = urllib.parse.urlparse(url)
                 if purl.fragment in anchors_in_top:
                     if r is root2:
-                        a.set('href', '%s#%s' % (container.name_to_href(name, bottom_name), purl.fragment))
+                        a.set(
+                            "href",
+                            "%s#%s"
+                            % (
+                                container.name_to_href(name, bottom_name),
+                                purl.fragment,
+                            ),
+                        )
                     else:
-                        a.set('href', '#' + purl.fragment)
+                        a.set("href", "#" + purl.fragment)
                 elif purl.fragment in anchors_in_bottom:
                     if r is root1:
-                        a.set('href', '%s#%s' % (container.name_to_href(bottom_name, name), purl.fragment))
+                        a.set(
+                            "href",
+                            "%s#%s"
+                            % (
+                                container.name_to_href(bottom_name, name),
+                                purl.fragment,
+                            ),
+                        )
                     else:
-                        a.set('href', '#' + purl.fragment)
+                        a.set("href", "#" + purl.fragment)
 
     # Fix all links in the container that point to anchors in the bottom tree
     for fname, media_type in container.mime_map.items():
         if fname not in {name, bottom_name}:
-            repl = SplitLinkReplacer(fname, anchors_in_bottom, name, bottom_name, container)
+            repl = SplitLinkReplacer(
+                fname, anchors_in_bottom, name, bottom_name, container
+            )
             container.replace_links(fname, repl)
 
     container.replace(name, root1)
     container.replace(bottom_name, root2)
 
-    spine = container.opf_xpath('//opf:spine')[0]
+    spine = container.opf_xpath("//opf:spine")[0]
     for spine_item, spine_name, linear in container.spine_iter:
         if spine_name == name:
             break
     index = spine.index(spine_item) + 1
 
-    si = spine.makeelement(base.tag('opf', 'itemref'), idref=manifest_item.get('id'))
+    si = spine.makeelement(base.tag("opf", "itemref"), idref=manifest_item.get("id"))
     if not linear:
-        si.set('linear', 'no')
+        si.set("linear", "no")
     container.insert_into_xml(spine, si, index=index)
     container.dirty(container.opf_name)
     return bottom_name
 
 
 def multisplit(container, name, xpath, before=True):
-    '''
+    """
     Split the specified file at multiple locations (all tags that match the specified XPath expression). See also: :func:`split`.
     Splitting automatically migrates all links and references to the affected
     files.
 
     :param before: If True the splits occur before the identified element otherwise after it.
-    '''
+    """
     root = container.parsed(name)
     nodes = root.xpath(xpath, namespaces=const.XPNSMAP)
     if not nodes:
-        raise AbortError('The expression %s did not match any nodes' % xpath)
+        raise AbortError("The expression %s did not match any nodes" % xpath)
     for split_point in nodes:
         if in_table(split_point):
-            raise AbortError('Cannot split inside tables')
-        if split_point.tag.endswith('}body'):
-            raise AbortError('Cannot split on the <body> tag')
+            raise AbortError("Cannot split inside tables")
+        if split_point.tag.endswith("}body"):
+            raise AbortError("Cannot split on the <body> tag")
 
     for i, tag in enumerate(nodes):
-        tag.set('calibre-split-point', str(i))
+        tag.set("calibre-split-point", str(i))
 
     current = name
     all_names = [name]
     for i in range(len(nodes)):
-        current = split(container, current, '//*[@calibre-split-point="%d"]' % i, before=before)
+        current = split(
+            container, current, '//*[@calibre-split-point="%d"]' % i, before=before
+        )
         all_names.append(current)
 
     for x in all_names:
-        for tag in container.parsed(x).xpath('//*[@calibre-split-point]'):
-            tag.attrib.pop('calibre-split-point')
+        for tag in container.parsed(x).xpath("//*[@calibre-split-point]"):
+            tag.attrib.pop("calibre-split-point")
         container.dirty(x)
 
     return all_names[1:]
 
 
 class MergeLinkReplacer(object):
-
     def __init__(self, base, anchor_map, master, container):
         self.container, self.anchor_map = container, anchor_map
         self.master = master
@@ -307,36 +333,36 @@ class MergeLinkReplacer(object):
         self.replaced = False
 
     def __call__(self, url):
-        if url and url.startswith('#'):
+        if url and url.startswith("#"):
             return url
         name = self.container.href_to_name(url, self.base)
         amap = self.anchor_map.get(name, None)
         if amap is None:
             return url
         purl = urllib.parse.urlparse(url)
-        frag = purl.fragment or ''
+        frag = purl.fragment or ""
         frag = amap.get(frag, frag)
-        url = self.container.name_to_href(self.master, self.base) + '#' + frag
+        url = self.container.name_to_href(self.master, self.base) + "#" + frag
         self.replaced = True
         return url
 
 
 def add_text(body, text):
     if len(body) > 0:
-        body[-1].tail = (body[-1].tail or '') + text
+        body[-1].tail = (body[-1].tail or "") + text
     else:
-        body.text = (body.text or '') + text
+        body.text = (body.text or "") + text
 
 
 def all_anchors(root):
-    return set(root.xpath('//*/@id')) | set(root.xpath('//*/@name'))
+    return set(root.xpath("//*/@id")) | set(root.xpath("//*/@name"))
 
 
 def all_stylesheets(container, name):
-    for link in base.XPath('//h:head/h:link[@href]')(container.parsed(name)):
-        name = container.href_to_name(link.get('href'), name)
-        typ = link.get('type', 'text/css')
-        if typ == 'text/css':
+    for link in base.XPath("//h:head/h:link[@href]")(container.parsed(name)):
+        name = container.href_to_name(link.get("href"), name)
+        typ = link.get("type", "text/css")
+        if typ == "text/css":
             yield name
 
 
@@ -345,16 +371,16 @@ def unique_anchor(seen_anchors, current):
     ans = current
     while ans in seen_anchors:
         c += 1
-        ans = '%s_%d' % (current, c)
+        ans = "%s_%d" % (current, c)
     return ans
 
 
 def remove_name_attributes(root):
     # Remove all name attributes, replacing them with id attributes
-    for elem in root.xpath('//*[@id and @name]'):
-        del elem.attrib['name']
-    for elem in root.xpath('//*[@name]'):
-        elem.set('id', elem.attrib.pop('name'))
+    for elem in root.xpath("//*[@id and @name]"):
+        del elem.attrib["name"]
+    for elem in root.xpath("//*[@name]"):
+        elem.set("id", elem.attrib.pop("name"))
 
 
 def merge_html(container, names, master, insert_page_breaks=False):
@@ -362,16 +388,16 @@ def merge_html(container, names, master, insert_page_breaks=False):
     root = p(master)
 
     # Ensure master has a <head>
-    head = root.find('h:head', namespaces=const.XPNSMAP)
+    head = root.find("h:head", namespaces=const.XPNSMAP)
     if head is None:
-        head = root.makeelement(base.tag('xhtml', 'head'))
+        head = root.makeelement(base.tag("xhtml", "head"))
         container.insert_into_xml(root, head, 0)
 
     seen_anchors = all_anchors(root)
     seen_stylesheets = set(all_stylesheets(container, master))
-    master_body = p(master).findall('h:body', namespaces=const.XPNSMAP)[-1]
+    master_body = p(master).findall("h:body", namespaces=const.XPNSMAP)[-1]
     master_base = os.path.dirname(master)
-    anchor_map = {n:{} for n in names if n != master}
+    anchor_map = {n: {} for n in names if n != master}
     first_anchor_map = {}
 
     for name in names:
@@ -381,7 +407,12 @@ def merge_html(container, names, master, insert_page_breaks=False):
         for sheet in all_stylesheets(container, name):
             if sheet not in seen_stylesheets:
                 seen_stylesheets.add(sheet)
-                link = head.makeelement(base.tag('xhtml', 'link'), rel='stylesheet', type='text/css', href=container.name_to_href(sheet, master))
+                link = head.makeelement(
+                    base.tag("xhtml", "link"),
+                    rel="stylesheet",
+                    type="text/css",
+                    href=container.name_to_href(sheet, master),
+                )
                 container.insert_into_xml(head, link)
 
         # Rebase links if master is in a different directory
@@ -390,48 +421,50 @@ def merge_html(container, names, master, insert_page_breaks=False):
 
         root = p(name)
         children = []
-        for body in p(name).findall('h:body', namespaces=const.XPNSMAP):
-            children.append(body.text if body.text and body.text.strip() else '\n\n')
+        for body in p(name).findall("h:body", namespaces=const.XPNSMAP):
+            children.append(body.text if body.text and body.text.strip() else "\n\n")
             children.extend(body)
 
-        first_child = ''
+        first_child = ""
         for first_child in children:
             if not isinstance(first_child, (str, bytes)):
                 break
         if isinstance(first_child, (str, bytes)):
             # body contained only text, no tags
-            first_child = body.makeelement(base.tag('xhtml', 'p'))
+            first_child = body.makeelement(base.tag("xhtml", "p"))
             first_child.text, children[0] = children[0], first_child
 
         amap = anchor_map[name]
         remove_name_attributes(root)
 
-        for elem in root.xpath('//*[@id]'):
-            val = elem.get('id')
+        for elem in root.xpath("//*[@id]"):
+            val = elem.get("id")
             if not val:
                 continue
             if val in seen_anchors:
                 nval = unique_anchor(seen_anchors, val)
-                elem.set('id', nval)
+                elem.set("id", nval)
                 amap[val] = nval
             else:
                 seen_anchors.add(val)
 
-        if 'id' not in first_child.attrib:
-            first_child.set('id', unique_anchor(seen_anchors, 'top'))
-            seen_anchors.add(first_child.get('id'))
-        first_anchor_map[name] = first_child.get('id')
+        if "id" not in first_child.attrib:
+            first_child.set("id", unique_anchor(seen_anchors, "top"))
+            seen_anchors.add(first_child.get("id"))
+        first_anchor_map[name] = first_child.get("id")
 
         if insert_page_breaks:
-            first_child.set('style', first_child.get('style', '') + '; page-break-before: always')
+            first_child.set(
+                "style", first_child.get("style", "") + "; page-break-before: always"
+            )
 
-        amap[''] = first_child.get('id')
+        amap[""] = first_child.get("id")
 
         # Fix links that point to local changed anchors
         for a in base.XPath('//h:a[starts-with(@href, "#")]')(root):
-            q = a.get('href')[1:]
+            q = a.get("href")[1:]
             if q in amap:
-                a.set('href', '#' + amap[q])
+                a.set("href", "#" + amap[q])
 
         for child in children:
             if isinstance(child, (str, bytes)):
@@ -479,39 +512,46 @@ def merge_css(container, names, master):
         if mt in base.OEB_DOCS:
             removed = False
             root = p(name)
-            for link in base.XPath('//h:link[@href]')(root):
-                q = container.href_to_name(link.get('href'), name)
+            for link in base.XPath("//h:link[@href]")(root):
+                q = container.href_to_name(link.get("href"), name)
                 if q in merged:
                     container.remove_from_xml(link)
                     removed = True
             if removed:
                 container.dirty(name)
             if removed and master not in set(all_stylesheets(container, name)):
-                head = root.find('h:head', namespaces=const.XPNSMAP)
+                head = root.find("h:head", namespaces=const.XPNSMAP)
                 if head is not None:
-                    link = head.makeelement(base.tag('xhtml', 'link'), type='text/css', rel='stylesheet', href=container.name_to_href(master, name))
+                    link = head.makeelement(
+                        base.tag("xhtml", "link"),
+                        type="text/css",
+                        rel="stylesheet",
+                        href=container.name_to_href(master, name),
+                    )
                     container.insert_into_xml(head, link)
 
 
 def merge(container, category, names, master):
-    '''
+    """
     Merge the specified files into a single file, automatically migrating all
     links and references to the affected files. The file must all either be HTML or CSS files.
 
     :param category: Must be either ``'text'`` for HTML files or ``'styles'`` for CSS files
     :param names: The list of files to be merged
     :param master: Which of the merged files is the *master* file, that is, the file that will remain after merging.
-    '''
-    if category not in {'text', 'styles'}:
-        raise AbortError('Cannot merge files of type: %s' % category)
+    """
+    if category not in {"text", "styles"}:
+        raise AbortError("Cannot merge files of type: %s" % category)
     if len(names) < 2:
-        raise AbortError('Must specify at least two files to be merged')
+        raise AbortError("Must specify at least two files to be merged")
     if master not in names:
-        raise AbortError('The master file (%s) must be one of the files being merged' % master)
+        raise AbortError(
+            "The master file (%s) must be one of the files being merged" % master
+        )
 
-    if category == 'text':
+    if category == "text":
         merge_html(container, names, master)
-    elif category == 'styles':
+    elif category == "styles":
         merge_css(container, names, master)
 
     container.dirty(master)

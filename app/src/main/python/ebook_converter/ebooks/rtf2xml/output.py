@@ -10,7 +10,8 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
-import sys, os
+import sys
+import os
 
 from . import open_for_read, open_for_write
 
@@ -20,13 +21,7 @@ class Output:
     Output file
     """
 
-    def __init__(self,
-            file,
-            orig_file,
-            output_dir=None,
-            out_file=None,
-            no_ask=True
-            ):
+    def __init__(self, file, orig_file, output_dir=None, out_file=None, no_ask=True):
         """
         Required:
             'file' -- xml file ready to output
@@ -35,7 +30,7 @@ class Output:
             output_file -- the file to output to
         Returns:
             nothing
-            """
+        """
         self.__file = file
         self.__orig_file = orig_file
         self.__output_dir = output_dir
@@ -71,19 +66,21 @@ class Output:
             Read one file at a time. Output line to the newly-created file.
         """
         base_name = os.path.basename(self.__orig_file)
-        base_name, ext  = os.path.splitext(base_name)
-        output_file = os.path.join(self.__output_dir, '%s.xml' % base_name)
+        base_name, ext = os.path.splitext(base_name)
+        output_file = os.path.join(self.__output_dir, "%s.xml" % base_name)
         # change if user wants to output to a specific file
         if self.__out_file:
             output_file = os.path.join(self.__output_dir, self.__out_file)
-        user_response = 'o'
+        user_response = "o"
         if os.path.isfile(output_file) and not self.__no_ask:
-            msg = 'Do you want to overwrite %s?\n' % output_file
-            msg += ('Type "o" to overwrite.\n'
-                    'Type any other key to print to standard output.\n')
+            msg = "Do you want to overwrite %s?\n" % output_file
+            msg += (
+                'Type "o" to overwrite.\n'
+                "Type any other key to print to standard output.\n"
+            )
             sys.stderr.write(msg)
             user_response = input()
-        if user_response == 'o':
+        if user_response == "o":
             with open_for_read(self.__file) as read_obj:
                 with open_for_write(self.output_file) as write_obj:
                     for line in read_obj:

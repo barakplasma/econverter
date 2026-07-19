@@ -3,29 +3,61 @@ import json
 
 
 def get_lang():
-    return 'en_US'
+    return "en_US"
 
 
 def is_rtl():
-    return get_lang()[:2].lower() in {'he', 'ar'}
+    return get_lang()[:2].lower() in {"he", "ar"}
 
 
-lcdata = {'abday': ('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'),
-          'abmon': ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug',
-                    'Sep', 'Oct', 'Nov', 'Dec'),
-          'd_fmt': '%m/%d/%Y',
-          'd_t_fmt': '%a %d %b %Y %r %Z',
-          'day': ('Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday',
-                  'Friday', 'Saturday'),
-          'mon': ('January', 'February', 'March', 'April', 'May', 'June',
-                  'July', 'August', 'September', 'October', 'November',
-                  'December'),
-          'noexpr': '^[nN].*',
-          'radixchar': '.',
-          't_fmt': '%r',
-          't_fmt_ampm': '%I:%M:%S %p',
-          'thousep': ',',
-          'yesexpr': '^[yY].*'}
+lcdata = {
+    "abday": ("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"),
+    "abmon": (
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+    ),
+    "d_fmt": "%m/%d/%Y",
+    "d_t_fmt": "%a %d %b %Y %r %Z",
+    "day": (
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+    ),
+    "mon": (
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    ),
+    "noexpr": "^[nN].*",
+    "radixchar": ".",
+    "t_fmt": "%r",
+    "t_fmt_ampm": "%I:%M:%S %p",
+    "thousep": ",",
+    "yesexpr": "^[yY].*",
+}
 
 
 _iso639 = None
@@ -39,10 +71,13 @@ def _load_iso639():
     # excerpt form Calibre transform code which is executed during Calibre
     # build).
     if _iso639 is None:
-        root = json.loads((importlib.resources.files('ebook_converter') /
-                  'data/iso_639-3.json').read_text(encoding='utf-8'))
+        root = json.loads(
+            (
+                importlib.resources.files("ebook_converter") / "data/iso_639-3.json"
+            ).read_text(encoding="utf-8")
+        )
 
-        entries = root['639-3']
+        entries = root["639-3"]
         by_2 = {}
         by_3 = {}
         m2to3 = {}
@@ -50,12 +85,12 @@ def _load_iso639():
         nm = {}
         codes2, codes3 = set(), set()
         for x in entries:
-            two = x.get('alpha_2')
-            threeb = x.get('alpha_3')
+            two = x.get("alpha_2")
+            threeb = x.get("alpha_3")
             if threeb is None:
                 continue
-            name = x.get('inverted_name') or x.get('name')
-            if not name or name[0] in '!~=/\'"':
+            name = x.get("inverted_name") or x.get("name")
+            if not name or name[0] in "!~=/'\"":
                 continue
 
             if two is not None:
@@ -68,13 +103,15 @@ def _load_iso639():
             base_name = name.lower()
             nm[base_name] = threeb
 
-        _iso639 = {'by_2': by_2,
-                   'by_3': by_3,
-                   'codes2': codes2,
-                   'codes3': codes3,
-                   '2to3': m2to3,
-                   '3to2': m3to2,
-                   'name_map': nm}
+        _iso639 = {
+            "by_2": by_2,
+            "by_3": by_3,
+            "codes2": codes2,
+            "codes3": codes3,
+            "2to3": m2to3,
+            "3to2": m3to2,
+            "name_map": nm,
+        }
 
     return _iso639
 
@@ -82,7 +119,7 @@ def _load_iso639():
 def langcode_to_name(lc, localize=True):
     iso639 = _load_iso639()
     try:
-        return iso639['by_3'][lc]
+        return iso639["by_3"][lc]
     except Exception:
         pass
     return lc
@@ -92,32 +129,32 @@ def canonicalize_lang(raw):
     if not raw:
         return None
     if not isinstance(raw, str):
-        raw = raw.decode('utf-8', 'ignore')
+        raw = raw.decode("utf-8", "ignore")
     raw = raw.lower().strip()
     if not raw:
         return None
-    raw = raw.replace('_', '-').partition('-')[0].strip()
+    raw = raw.replace("_", "-").partition("-")[0].strip()
     if not raw:
         return None
     iso639 = _load_iso639()
-    m2to3 = iso639['2to3']
+    m2to3 = iso639["2to3"]
 
     if len(raw) == 2:
         ans = m2to3.get(raw, None)
         if ans is not None:
             return ans
     elif len(raw) == 3:
-        if raw in iso639['by_3']:
+        if raw in iso639["by_3"]:
             return raw
 
-    return iso639['name_map'].get(raw, None)
+    return iso639["name_map"].get(raw, None)
 
 
 def lang_as_iso639_1(name_or_code):
     code = canonicalize_lang(name_or_code)
     if code is not None:
         iso639 = _load_iso639()
-        return iso639['3to2'].get(code, None)
+        return iso639["3to2"].get(code, None)
 
 
 _udc = None
@@ -127,6 +164,7 @@ def get_udc():
     global _udc
     if _udc is None:
         from ebook_converter.ebooks.unihandecode import Unihandecoder
+
         _udc = Unihandecoder(lang=get_lang())
     return _udc
 

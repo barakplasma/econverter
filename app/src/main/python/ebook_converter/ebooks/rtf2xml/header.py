@@ -10,7 +10,8 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
-import sys, os
+import sys
+import os
 
 from ebook_converter.ebooks.rtf2xml import copy
 from ebook_converter.ptempfile import better_mktemp
@@ -25,12 +26,13 @@ class Header:
     the proper places in the body.
     """
 
-    def __init__(self,
-            in_file ,
-            bug_handler,
-            copy=None,
-            run_level=1,
-            ):
+    def __init__(
+        self,
+        in_file,
+        bug_handler,
+        copy=None,
+        run_level=1,
+    ):
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__copy = copy
@@ -45,9 +47,10 @@ class Header:
             self.__in_header = False
             self.__write_obj.write(line)
             self.__write_to_head_obj.write(
-            'mi<mk<head___clo\n'
-            'mi<tg<close_____<header-or-footer\n'
-            'mi<mk<header-clo\n')
+                "mi<mk<head___clo\n"
+                "mi<tg<close_____<header-or-footer\n"
+                "mi<mk<header-clo\n"
+            )
         else:
             self.__write_to_head_obj.write(line)
 
@@ -62,31 +65,30 @@ class Header:
         # temporarily set this to zero so I can enter loop
         self.__cb_count = 0
         self.__header_bracket_count = self.__ob_count
-        self.__write_obj.write(
-        'mi<mk<header-ind<%04d\n' % self.__header_count)
-        self.__write_to_head_obj.write(
-        'mi<mk<header-ope<%04d\n' % self.__header_count)
+        self.__write_obj.write("mi<mk<header-ind<%04d\n" % self.__header_count)
+        self.__write_to_head_obj.write("mi<mk<header-ope<%04d\n" % self.__header_count)
         info = line[6:16]
         type = self.__head_dict.get(info)
         if type:
             self.__write_to_head_obj.write(
-                    'mi<tg<open-att__<header-or-footer<type>%s\n' % (type)
-                    )
+                "mi<tg<open-att__<header-or-footer<type>%s\n" % (type)
+            )
         else:
             sys.stderr.write(
-            'module is header\n'
-            'method is __found_header\n'
-            'no dict entry\n'
-            'line is %s' % line)
+                "module is header\n"
+                "method is __found_header\n"
+                "no dict entry\n"
+                "line is %s" % line
+            )
             self.__write_to_head_obj.write(
-                    'mi<tg<open-att__<header-or-footer<type>none\n'
-                    )
+                "mi<tg<open-att__<header-or-footer<type>none\n"
+            )
 
     def __default_sep(self, line):
         """
         Handle all tokens that are not header tokens
         """
-        if self.__token_info[3:5] == 'hf':
+        if self.__token_info[3:5] == "hf":
             self.__found_header(line)
         self.__write_obj.write(line)
 
@@ -94,21 +96,21 @@ class Header:
         """
         initiate counters for separate_footnotes method.
         """
-        self.__bracket_count=0
+        self.__bracket_count = 0
         self.__ob_count = 0
         self.__cb_count = 0
         self.__header_bracket_count = 0
         self.__in_header = False
         self.__header_count = 0
         self.__head_dict = {
-            'head-left_'        :   ('header-left'),
-            'head-right'        :   ('header-right'),
-            'foot-left_'        :   ('footer-left'),
-            'foot-right'        :   ('footer-right'),
-            'head-first'        :   ('header-first'),
-            'foot-first'        :   ('footer-first'),
-            'header____'        :   ('header'),
-            'footer____'        :   ('footer'),
+            "head-left_": ("header-left"),
+            "head-right": ("header-right"),
+            "foot-left_": ("footer-left"),
+            "foot-right": ("footer-right"),
+            "head-first": ("header-first"),
+            "foot-first": ("footer-first"),
+            "header____": ("header"),
+            "footer____": ("footer"),
         }
 
     def separate_headers(self):
@@ -127,9 +129,9 @@ class Header:
                     for line in read_obj:
                         self.__token_info = line[:16]
                         # keep track of opening and closing brackets
-                        if self.__token_info == 'ob<nu<open-brack':
+                        if self.__token_info == "ob<nu<open-brack":
                             self.__ob_count = line[-5:-1]
-                        if self.__token_info == 'cb<nu<clos-brack':
+                        if self.__token_info == "cb<nu<clos-brack":
                             self.__cb_count = line[-5:-1]
                         # In the middle of footnote text
                         if self.__in_header:
@@ -140,12 +142,10 @@ class Header:
 
         with open_for_read(self.__header_holder) as read_obj:
             with open_for_write(self.__write_to, append=True) as write_obj:
-                write_obj.write(
-                'mi<mk<header-beg\n')
+                write_obj.write("mi<mk<header-beg\n")
                 for line in read_obj:
                     write_obj.write(line)
-                write_obj.write(
-                'mi<mk<header-end\n')
+                write_obj.write("mi<mk<header-end\n")
         os.remove(self.__header_holder)
 
         copy_obj = copy.Copy(bug_handler=self.__bug_handler)
@@ -166,8 +166,8 @@ class Header:
         Process lines in main body and look for beginning of headers.
         """
         # mi<mk<footnt-end
-        if self.__token_info == 'mi<mk<header-beg':
-            self.__state = 'head'
+        if self.__token_info == "mi<mk<header-beg":
+            self.__state = "head"
         else:
             self.__write_obj.write(line)
 
@@ -175,8 +175,8 @@ class Header:
         """
         Copy headers and footers from bottom of file to a separate, temporary file.
         """
-        if self.__token_info == 'mi<mk<header-end':
-            self.__state = 'body'
+        if self.__token_info == "mi<mk<header-end":
+            self.__state = "body"
         else:
             self.__write_to_head_obj.write(line)
 
@@ -193,9 +193,9 @@ class Header:
                 with open_for_write(self.__header_holder) as self.__write_to_head_obj:
                     for line in read_obj:
                         self.__token_info = line[:16]
-                        if self.__state == 'body':
+                        if self.__state == "body":
                             self.__get_head_body_func(line)
-                        elif self.__state == 'head':
+                        elif self.__state == "head":
                             self.__get_head_head_func(line)
 
     def __get_head_from_temp(self, num):
@@ -205,12 +205,12 @@ class Header:
         found. It collects all the tokens until the end of the footnote, and
         returns them as a string.
         """
-        look_for = 'mi<mk<header-ope<' + num + '\n'
+        look_for = "mi<mk<header-ope<" + num + "\n"
         found_head = False
-        string_to_return = ''
+        string_to_return = ""
         for line in self.__read_from_head_obj:
             if found_head:
-                if line == 'mi<mk<header-clo\n':
+                if line == "mi<mk<header-clo\n":
                     return string_to_return
                 string_to_return += line
             else:
@@ -230,7 +230,7 @@ class Header:
         self.__write_obj = open_for_write(self.__write_to2)
         with open_for_read(self.__write_to) as read_obj:
             for line in read_obj:
-                if line[:16] == 'mi<mk<header-ind':
+                if line[:16] == "mi<mk<header-ind":
                     line = self.__get_head_from_temp(line[17:-1])
                 self.__write_obj.write(line)
 
@@ -247,7 +247,7 @@ class Header:
         if not self.__found_a_header:
             return
         self.__write_to2 = better_mktemp()
-        self.__state = 'body'
+        self.__state = "body"
         self.__get_headers()
         self.__join_from_temp()
         self.__write_obj.close()
