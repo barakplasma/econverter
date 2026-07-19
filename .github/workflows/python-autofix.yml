@@ -4,25 +4,29 @@ on:
   push:
     branches-ignore:
       - master
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: python-autofix-${{ github.ref }}
+  group: python-autofix-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
   autofix:
-    if: github.actor != 'github-actions[bot]'
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Checkout branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ github.head_ref || github.ref_name }}
           fetch-depth: 0
 
       - name: Set up Python
@@ -68,7 +72,7 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -u
           git commit -m 'Apply automatic ty and Ruff fixes'
-          git push origin HEAD:${{ github.ref_name }}
+          git push origin HEAD:${{ github.head_ref || github.ref_name }}
           echo 'changed=true' >> "$GITHUB_OUTPUT"
 
       - name: Verify remaining types
