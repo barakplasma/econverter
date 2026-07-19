@@ -109,6 +109,26 @@ def test_bomless_utf16le_plain_text_to_epub(tmp_path):
     assert '\x00' not in text
 
 
+def test_markdown_relative_image_is_embedded(tmp_path):
+    # A 1x1 PNG next to the Markdown file, referenced relatively. It must be
+    # embedded even though the generated HTML lives in a temp sibling dir.
+    png = bytes.fromhex(
+        '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4'
+        '890000000d4944415478da63f8cfc0f01f0005000101ff5c2d3f0000000049454e44ae426082')
+    (tmp_path / 'cover.png').write_bytes(png)
+    source = '# Doc\n\n![cover](cover.png)\n\nbody text after the image\n'
+    _input_path, output_path, result = run_convert(
+        tmp_path, 'with-image.md', source.encode('utf-8'), 'with-image.epub')
+    assert result['warnings'] == []
+
+    entries = epub_entries(output_path)
+    png_names = [n for n in entries if n.lower().endswith('.png')]
+    assert png_names, f'relative image was dropped: {sorted(entries)}'
+    assert entries[png_names[0]] == png
+    assert 'body text after the image' in visible_text(
+        epub_document_text(entries))
+
+
 def test_repo_readme_to_epub(tmp_path):
     readme = os.path.join(os.path.dirname(__file__), '..', '..', 'README.md')
     _input_path, output_path, _result = run_convert(

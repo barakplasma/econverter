@@ -1,0 +1,247 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Runs on every push and pull request in a couple of minutes: structural
+  # Markdown linting plus the host conversion suite that reproduces the
+  # historical lxml/Chaquopy failures without an emulator. This replaces the
+  # old inline "smoke" heredoc (which loaded a since-removed module path).
+  fast-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: tests/python/requirements.txt
+
+      - name: Lint maintained Markdown structure with rumdl
+        run: |
+          python -m pip install 'rumdl==0.2.34'
+          rumdl check .
+
+      - name: Install host conversion dependencies
+        run: python -m pip install -r tests/python/requirements.txt
+
+      - name: Run host conversion suite
+        run: python -m pytest tests/python
+
+  # Emulator E2E proves the packaged Chaquopy app converts real files on a
+  # device. Only worth the 40+ minutes on master (or a manual dispatch), and
+  # only after the fast checks are green.
+  android-e2e:
+    needs: fast-checks
+    if: github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          test -r /dev/kvm && test -w /dev/kvm
+          ls -l /dev/kvm
+
+      - name: Restore Android 16 AVD snapshot
+        id: avd-cache
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-v1-${{ runner.os }}-api36-google-apis-x86-64-pixel-7-pro
+
+      - name: Create Android 16 AVD snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7_pro
+          avd-name: econverter-api36
+          force-avd-creation: false
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
+          emulator-boot-timeout: 900
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: echo 'Generated clean API 36 AVD snapshot.'
+
+      - name: Save Android 16 AVD snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            ~/.android/avd/*
+            ~/.android/adb*
+          key: avd-v1-${{ runner.os }}-api36-google-apis-x86-64-pixel-7-pro
+
+      - name: Convert Markdown and TXT on Android 16 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          profile: pixel_7_pro
+          avd-name: econverter-api36
+          force-avd-creation: false
+          cores: 2
+          ram-size: 2048M
+          heap-size: 512M
+          emulator-boot-timeout: 900
+          disable-animations: true
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: >-
+            bash -o pipefail -c ': > android-e2e.log;
+            ./gradlew connectedDebugAndroidTest
+            -Pandroid.testInstrumentationRunnerArguments.class=com.econverter.app.MarkdownConversionInstrumentedTest
+            --stacktrace 2>&1 | tee android-e2e.log;
+            status=${PIPESTATUS[0]};
+            adb logcat -d > android-logcat.txt 2>&1 || true;
+            exit "$status"'
+
+      - name: Capture emulator diagnostics
+        if: always()
+        run: |
+          {
+            echo '=== KVM ==='
+            ls -l /dev/kvm || true
+            echo '=== AVDs ==='
+            emulator -list-avds || true
+            echo '=== ADB ==='
+            adb devices -l || true
+            echo '=== Cached AVD files ==='
+            find "$HOME/.android/avd" -maxdepth 3 -type f -printf '%p %s bytes\n' 2>/dev/null | sort || true
+          } > emulator-diagnostics.txt 2>&1
+
+      - name: Upload Android test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: markdown-android-e2e-results
+          path: |
+            android-e2e.log
+            android-logcat.txt
+            emulator-diagnostics.txt
+            app/build/reports/androidTests/connected/
+            app/build/outputs/androidTest-results/connected/
+          if-no-files-found: warn
+
+  # Fork-only prerelease APK. master only, gated on the emulator E2E passing.
+  release:
+    needs: android-e2e
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Generate test release signing key
+        run: |
+          keytool -genkeypair -noprompt \
+            -keystore app/markdown-test-release.keystore \
+            -storepass androidtest \
+            -keypass androidtest \
+            -alias econverter-test \
+            -dname 'CN=eConverter Markdown Test,O=barakplasma,C=IL' \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 3650
+
+      - name: Derive release version
+        id: version
+        run: |
+          echo "name=v1.0.6-markdown.r${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+
+      - name: Build signed release APK
+        run: ./gradlew assembleRelease --stacktrace
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/app/markdown-test-release.keystore
+          KEYSTORE_PASSWORD: androidtest
+          KEY_ALIAS: econverter-test
+          KEY_PASSWORD: androidtest
+          VERSION_SUFFIX: r${{ github.run_number }}
+          VERSION_CODE_OFFSET: ${{ github.run_number }}
+
+      - name: Verify and rename APK
+        run: |
+          test -s app/build/outputs/apk/release/app-release.apk
+          jarsigner -verify app/build/outputs/apk/release/app-release.apk
+          mv app/build/outputs/apk/release/app-release.apk \
+            "app/build/outputs/apk/release/econverter-${{ steps.version.outputs.name }}.apk"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: econverter-${{ steps.version.outputs.name }}
+          path: app/build/outputs/apk/release/econverter-${{ steps.version.outputs.name }}.apk
+          if-no-files-found: error
+
+      - name: Publish fork-only prerelease
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.name }}
+          target_commitish: ${{ github.sha }}
+          name: eConverter Markdown + TXT structurally checked Android build
+          prerelease: true
+          generate_release_notes: true
+          body: |
+            Fork-only test release. No pull request has been opened upstream.
+
+            Adds `.md` and `.markdown` input plus offline rendering of fenced Mermaid diagrams to SVG.
+
+            This release applies the same text-ingress protection to `.txt`, `.text`, `.md`, `.markdown`, and `.textile`: encoding detection, BOM-less UTF-16LE/BE detection, normalization to UTF-8, and removal of XML-invalid controls such as hidden NUL characters. Generated Mermaid SVG is also sanitized and validated before ebook conversion.
+
+            Maintained Markdown in the repository is checked with pinned `rumdl` 0.2.34 using its GFM parser and the structural MD070 nested-fence-collision rule. The host conversion suite (`pytest tests/python`) reproduces the historical lxml failures on every push and pull request. Neither is bundled into the Android APK; they are CI defenses, not a replacement for runtime sanitization.
+
+            Before publication, an Android 16 / API 36 x86_64 emulator runs the packaged Chaquopy app through real conversions of Markdown and TXT to EPUB 3 and AZW3, validating Unicode, XHTML, and the sanitized embedded SVG.
+
+            The API 36 emulator uses KVM and a cached clean AVD snapshot. Cache misses generate and save the snapshot before the conversion tests run.
+
+            The AZW3 output is the file intended for copying into a Kindle's documents folder over USB MTP. The existing Android file export/copy path is unchanged.
+
+            This APK is signed with a test key generated for this workflow run. Uninstall a differently signed eConverter build before installing it.
+          files: app/build/outputs/apk/release/econverter-${{ steps.version.outputs.name }}.apk
+          fail_on_unmatched_files: true
+
+      - name: Clean up test key
+        if: always()
+        run: rm -f app/markdown-test-release.keystore

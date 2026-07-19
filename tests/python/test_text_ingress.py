@@ -1,6 +1,7 @@
 """Unit tests for the text ingress helpers (decode, Mermaid, fallbacks)."""
 
 import codecs
+import os
 import re
 from xml.etree import ElementTree
 
@@ -108,6 +109,52 @@ class TestMermaid:
         result = et.render_fenced_diagrams(block + '\n' + block, str(tmp_path))
         assert result.count('![Mermaid diagram]') == 2
         assert len(list(tmp_path.glob('*.svg'))) == 1
+
+
+class TestResolveLocalResources:
+    def _doc(self, body):
+        return et.build_html_document('t', body)
+
+    def test_relative_image_rewritten_to_input_dir(self, tmp_path):
+        input_dir = tmp_path / 'notes'
+        work_dir = tmp_path / 'work'
+        input_dir.mkdir()
+        work_dir.mkdir()
+        (input_dir / 'cover.png').write_bytes(b'\x89PNG')
+        out = et.resolve_local_resources(
+            self._doc('<p><img src="cover.png"/></p>'),
+            str(input_dir), str(work_dir))
+        assert os.path.abspath(str(input_dir / 'cover.png')) in out
+
+    def test_workdir_mermaid_reference_untouched(self, tmp_path):
+        input_dir = tmp_path / 'notes'
+        work_dir = tmp_path / 'work'
+        input_dir.mkdir()
+        work_dir.mkdir()
+        (work_dir / 'mermaid-1-abc.svg').write_text('<svg/>')
+        out = et.resolve_local_resources(
+            self._doc('<p><img src="mermaid-1-abc.svg"/></p>'),
+            str(input_dir), str(work_dir))
+        assert 'src="mermaid-1-abc.svg"' in out
+
+    def test_missing_file_and_hyperlink_untouched(self, tmp_path):
+        input_dir = tmp_path / 'notes'
+        work_dir = tmp_path / 'work'
+        input_dir.mkdir()
+        work_dir.mkdir()
+        (input_dir / 'there.png').write_bytes(b'x')
+        body = ('<p><a href="there.png">link</a>'
+                '<img src="gone.png"/></p>')
+        out = et.resolve_local_resources(
+            self._doc(body), str(input_dir), str(work_dir))
+        assert out == self._doc(body)  # nothing embeddable was rewritten
+
+    def test_absolute_and_remote_urls_untouched(self, tmp_path):
+        out = et.resolve_local_resources(
+            self._doc('<p><img src="https://x/y.png"/>'
+                      '<img src="/etc/passwd"/></p>'),
+            str(tmp_path), str(tmp_path))
+        assert 'https://x/y.png' in out and '/etc/passwd' in out
 
 
 class TestPrepareTextInput:

@@ -41,18 +41,16 @@ _MERMAID_FENCE = re.compile(
 )
 
 
+# Complement of the XML 1.0 legal character set. A precompiled regex pushes the
+# per-character filtering into CIL/C instead of a Python generator, which
+# matters for large documents on the phone's Chaquopy interpreter.
+_XML_INVALID_RE = re.compile(
+    '[^\x09\x0a\x0d\x20-\ud7ff\ue000-\ufffd\U00010000-\U0010ffff]')
+
+
 def clean_xml_chars(text):
     """Remove only characters forbidden by XML 1.0."""
-    return "".join(
-        char
-        for char in text
-        if (
-            ord(char) in (0x09, 0x0A, 0x0D)
-            or 0x20 <= ord(char) <= 0xD7FF
-            or 0xE000 <= ord(char) <= 0xFFFD
-            or 0x10000 <= ord(char) <= 0x10FFFF
-        )
-    )
+    return _XML_INVALID_RE.sub('', text)
 
 
 def _bomless_utf16_encoding(raw):
@@ -170,8 +168,11 @@ def render_fenced_diagrams(markdown_text, output_dir, log=None):
                 svg = clean_xml_chars(svg)
                 # Validate before exposing the resource to the conversion
                 # pipeline; a malformed renderer output fails here instead of
-                # as an opaque OEB resource parsing error later.
-                ElementTree.fromstring(svg)
+                # as an opaque OEB resource parsing error later. Parse the
+                # UTF-8 bytes rather than the str: an SVG carrying an XML
+                # encoding declaration makes ElementTree.fromstring reject a
+                # str on some builds.
+                ElementTree.fromstring(svg.encode('utf-8'))
             except Exception as exc:
                 if log is not None:
                     log.warning("Could not render Mermaid diagram: %s" % exc)
@@ -226,6 +227,47 @@ def validate_html_document(document):
     etree.fromstring(etree.tostring(root, encoding='utf-8', method='xml'))
 
 
+def resolve_local_resources(document, input_dir, work_dir):
+    """Point relative asset links at the input document's directory.
+
+    Markdown asset references (``![cover](cover.png)``) are relative to the
+    input file, but the generated HTML lives in a temporary work dir, so
+    HTMLInput would resolve them against that empty directory and silently drop
+    the resource. Rewrite such references to absolute paths under ``input_dir``
+    so they stay embeddable. References that already resolve inside
+    ``work_dir`` (the generated Mermaid SVGs), non-local URLs, and hyperlinks
+    are left untouched. Returns the (possibly rewritten) document string.
+    """
+    from urllib.parse import unquote, urlsplit
+
+    from lxml import etree
+    from lxml import html as lxml_html
+
+    root = lxml_html.document_fromstring(document)
+    changed = False
+    for element, attribute, url, _pos in root.iterlinks():
+        # Only inline assets get embedded; hyperlinks are left as-is so a link
+        # to a sibling file is never turned into an embedded resource.
+        if attribute != 'src' and not (
+                attribute == 'href' and element.tag in ('image', 'link')):
+            continue
+        split = urlsplit(url)
+        if split.scheme or split.netloc or not split.path:
+            continue
+        rel = unquote(split.path)
+        if os.path.isabs(rel):
+            continue
+        if os.path.exists(os.path.join(work_dir, rel)):
+            continue  # generated Mermaid SVG, already beside the HTML
+        candidate = os.path.join(input_dir, rel)
+        if os.path.exists(candidate):
+            element.set(attribute, os.path.abspath(candidate))
+            changed = True
+    if not changed:
+        return document
+    return etree.tostring(root, encoding='unicode', method='xml')
+
+
 def prepare_text_input(input_path, log=None, force_txt_plugin=False):
     """Normalize a text-like input file for conversion.
 
@@ -272,6 +314,8 @@ def prepare_text_input(input_path, log=None, force_txt_plugin=False):
 
     document = build_html_document(title, body)
     try:
+        document = resolve_local_resources(
+            document, os.path.dirname(os.path.abspath(input_path)), work_dir)
         validate_html_document(document)
     except Exception as exc:
         warnings.append(
