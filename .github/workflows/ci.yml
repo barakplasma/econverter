@@ -22,7 +22,6 @@ jobs:
   autofix:
     if: >-
       github.event_name == 'pull_request' &&
-      github.head_ref != 'claude/pr-review-lxml-fixes-dohoga' &&
       github.actor != 'github-actions[bot]' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
@@ -74,7 +73,6 @@ jobs:
     needs: autofix
     if: >-
       always() &&
-      github.head_ref != 'claude/pr-review-lxml-fixes-dohoga' &&
       (needs.autofix.result == 'success' || needs.autofix.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20
