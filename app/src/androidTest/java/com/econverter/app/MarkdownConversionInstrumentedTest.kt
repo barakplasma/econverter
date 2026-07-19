@@ -44,25 +44,28 @@ class MarkdownConversionInstrumentedTest {
         input.writeBytes(markdownFixture().toByteArray(charset))
     }
 
-    private fun visibleHtmlUnder(directory: File): String =
+    private fun htmlFilesUnder(directory: File): Sequence<File> =
         if (!directory.isDirectory) {
-            "<missing>"
+            emptySequence()
         } else {
-            directory.walkTopDown()
-                .filter {
-                    it.isFile &&
-                        (it.extension.equals("html", true) ||
-                            it.extension.equals("xhtml", true) ||
-                            it.extension.equals("htm", true))
-                }
-                .joinToString(" ") { file ->
-                    file.readText(Charsets.UTF_8)
-                        .replace(Regex("<[^>]+>"), " ")
-                        .replace(Regex("\\s+"), " ")
-                        .trim()
-                }
-                .ifBlank { "<no-html>" }
+            directory.walkTopDown().filter {
+                it.isFile &&
+                    (it.extension.equals("html", true) ||
+                        it.extension.equals("xhtml", true) ||
+                        it.extension.equals("htm", true))
+            }
         }
+
+    private fun rawHtmlUnder(directory: File): String =
+        htmlFilesUnder(directory)
+            .joinToString("\n") { file -> file.readText(Charsets.UTF_8) }
+            .ifBlank { "<no-html>" }
+
+    private fun visibleHtmlUnder(directory: File): String =
+        rawHtmlUnder(directory)
+            .replace(Regex("<[^>]+>"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
 
     @Test
     fun convertsPackagedMarkdownWithMermaidToEpub3() {
@@ -127,12 +130,20 @@ class MarkdownConversionInstrumentedTest {
         val workDir = File(startPython(), "markdown-azw3-e2e-${System.nanoTime()}").apply { mkdirs() }
         val input = File(workDir, "kindle-usb-e2e.md")
         val output = File(workDir, "kindle-usb-e2e.azw3")
+        val debugDir = File(workDir, "debug-pipeline")
 
         try {
             writeMarkdown(input, Charsets.UTF_16LE)
+            val originalInput = input.readBytes()
 
             val result = Python.getInstance().getModule("converter")
-                .callAttr("convert", input.absolutePath, output.absolutePath)
+                .callAttr(
+                    "convert",
+                    input.absolutePath,
+                    output.absolutePath,
+                    "--debug-pipeline",
+                    debugDir.absolutePath,
+                )
             val success = result.callAttr("__getitem__", "success").toBoolean()
             val message = result.callAttr("__getitem__", "message").toString()
 
@@ -150,10 +161,17 @@ class MarkdownConversionInstrumentedTest {
                 header.copyOfRange(60, 68).toString(Charsets.US_ASCII),
             )
 
-            val rewrittenMarkdown = input.readText(Charsets.UTF_8)
-            assertTrue("Mermaid preprocessing did not run before AZW3 conversion", rewrittenMarkdown.contains("![Mermaid diagram]"))
-            assertTrue("Markdown was not normalized to readable UTF-8", rewrittenMarkdown.contains("שלום"))
-            assertTrue("Normalized Markdown still contains a NUL", !rewrittenMarkdown.contains(0.toChar()))
+            assertTrue(
+                "Conversion unexpectedly modified the original UTF-16 Markdown input",
+                input.readBytes().contentEquals(originalInput),
+            )
+            val debugHtml = rawHtmlUnder(debugDir)
+            assertTrue(
+                "Mermaid preprocessing was not visible in the AZW3 debug pipeline: ${debugHtml.take(500)}",
+                debugHtml.contains("Mermaid diagram") || debugHtml.contains(".svg"),
+            )
+            assertTrue("Markdown Unicode content was lost in the AZW3 pipeline", debugHtml.contains("שלום"))
+            assertTrue("AZW3 debug HTML still contains an XML-invalid NUL", !debugHtml.contains(0.toChar()))
         } finally {
             workDir.deleteRecursively()
         }
@@ -169,6 +187,7 @@ class MarkdownConversionInstrumentedTest {
 
         try {
             input.writeBytes(source.toByteArray(Charsets.UTF_16LE))
+            val originalInput = input.readBytes()
 
             val result = Python.getInstance().getModule("converter").callAttr(
                 "convert",
@@ -183,11 +202,10 @@ class MarkdownConversionInstrumentedTest {
             assertTrue(message, success)
             assertTrue("TXT conversion did not create an EPUB", output.isFile)
             assertTrue("TXT EPUB is unexpectedly empty", output.length() > 1024)
-
-            val normalizedText = input.readText(Charsets.UTF_8)
-            assertTrue("TXT was not normalized to UTF-8", normalizedText.contains("Plain text sanitizer"))
-            assertTrue("TXT Unicode content was lost", normalizedText.contains("שלום"))
-            assertTrue("Normalized TXT still contains an XML-invalid NUL", !normalizedText.contains(0.toChar()))
+            assertTrue(
+                "Conversion unexpectedly modified the original UTF-16 TXT input",
+                input.readBytes().contentEquals(originalInput),
+            )
 
             ZipFile(output).use { epub ->
                 val names = mutableListOf<String>()
@@ -211,6 +229,7 @@ class MarkdownConversionInstrumentedTest {
                     "Sanitized TXT content was lost in EPUB; entries=$contentNames; text=${visibleText.take(500)}; $stages",
                     visibleText.contains("Plain text sanitizer"),
                 )
+                assertTrue("TXT Unicode content was lost", visibleText.contains("שלום"))
                 assertTrue("TXT EPUB contains an XML-invalid NUL", !documentText.contains(0.toChar()))
             }
         } finally {
