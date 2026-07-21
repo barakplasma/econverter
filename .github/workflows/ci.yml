@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - 'v*'
   pull_request:
   workflow_dispatch:
 
@@ -123,7 +125,10 @@ jobs:
   # only after the fast checks are green.
   android-e2e:
     needs: fast-checks
-    if: github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
+    if: >-
+      github.ref == 'refs/heads/master' ||
+      startsWith(github.ref, 'refs/tags/v') ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 75
     steps:
@@ -320,3 +325,47 @@ jobs:
       - name: Clean up test key
         if: always()
         run: rm -f app/markdown-test-release.keystore
+
+  # Official keystore-signed release. Tag pushes only, and only after the same
+  # fast-checks and emulator E2E every other change goes through — so a real
+  # release can never ship untested. Replaces the standalone release.yml.
+  signed-release:
+    needs: android-e2e
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Decode keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release.keystore
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/app/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Rename APK with version tag
+        run: mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/econverter-${GITHUB_REF_NAME}.apk
+
+      - name: Clean up keystore
+        if: always()
+        run: rm -f app/release.keystore
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/release/econverter-*.apk
+          generate_release_notes: true
+          fail_on_unmatched_files: true
