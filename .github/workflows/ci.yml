@@ -249,17 +249,48 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Generate test release signing key
+      - name: Validate release signing material
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          keytool -genkeypair -noprompt \
-            -keystore app/markdown-test-release.keystore \
-            -storepass androidtest \
-            -keypass androidtest \
-            -alias econverter-test \
-            -dname 'CN=eConverter Markdown Test,O=barakplasma,C=IL' \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 3650
+          set -euo pipefail
+
+          for signing_variable in \
+            KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!signing_variable}" ]; then
+              echo "Required signing secret ${signing_variable} is missing or unavailable."
+              exit 1
+            fi
+          done
+
+          keystore_path="$RUNNER_TEMP/release.keystore"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          test -s "$keystore_path"
+
+          # Check that the keystore, its password, and the configured alias all
+          # work before downloading Gradle dependencies or starting the build.
+          keytool -list -keystore "$keystore_path" \
+            -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" > /dev/null
+
+          # keytool does not read the private-key password when listing an
+          # alias. Signing an empty JAR verifies it without touching the APK.
+          validation_file="$RUNNER_TEMP/signing-validation.txt"
+          validation_jar="$RUNNER_TEMP/signing-validation.jar"
+          signed_validation_jar="$RUNNER_TEMP/signing-validation-signed.jar"
+          : > "$validation_file"
+          jar --create --file "$validation_jar" \
+            -C "$RUNNER_TEMP" "${validation_file##*/}"
+          jarsigner -keystore "$keystore_path" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -keypass "$KEY_PASSWORD" \
+            -signedjar "$signed_validation_jar" \
+            "$validation_jar" "$KEY_ALIAS" > /dev/null
+
+          echo "keystore_path=$keystore_path" >> "$GITHUB_OUTPUT"
 
       - name: Derive release version
         id: version
@@ -269,10 +300,10 @@ jobs:
       - name: Build signed release APK
         run: ./gradlew assembleRelease --stacktrace
         env:
-          KEYSTORE_PATH: ${{ github.workspace }}/app/markdown-test-release.keystore
-          KEYSTORE_PASSWORD: androidtest
-          KEY_ALIAS: econverter-test
-          KEY_PASSWORD: androidtest
+          KEYSTORE_PATH: ${{ steps.signing.outputs.keystore_path }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           VERSION_SUFFIX: r${{ github.run_number }}
           VERSION_CODE_OFFSET: ${{ github.run_number }}
 
@@ -313,10 +344,10 @@ jobs:
 
             The AZW3 output is the file intended for copying into a Kindle's documents folder over USB MTP. The existing Android file export/copy path is unchanged.
 
-            This APK is signed with a test key generated for this workflow run. Uninstall a differently signed eConverter build before installing it.
+            This APK is signed with the project's release key, so it can update an existing installation signed with that same key.
           files: app/build/outputs/apk/release/econverter-${{ steps.version.outputs.name }}.apk
           fail_on_unmatched_files: true
 
-      - name: Clean up test key
+      - name: Clean up release signing material
         if: always()
-        run: rm -f app/markdown-test-release.keystore
+        run: rm -f "$RUNNER_TEMP/release.keystore" "$RUNNER_TEMP/signing-validation.txt" "$RUNNER_TEMP/signing-validation.jar" "$RUNNER_TEMP/signing-validation-signed.jar"
