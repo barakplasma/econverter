@@ -29,8 +29,7 @@ server component.
 | `app/src/main/python/ebook_converter/` | **Vendored** Calibre-derived conversion package (~4.12 era). Treat as third-party: minimal, surgical changes only, each one documented in this file's "Vendored changes" section. |
 | `app/src/androidTest/.../MarkdownConversionInstrumentedTest.kt` | Thin on-device packaging test (Chaquopy boots, conversions succeed). Deep behavior belongs in host tests. |
 | `tests/python/` | **Host-side pytest suite.** Runs the full conversion pipeline on desktop Linux/macOS. This is where conversion behavior is specified and where you iterate. |
-| `.github/workflows/ci.yml` | Staged CI: fast lint+pytest on every push; emulator E2E and prerelease APK only on master. |
-| `.github/workflows/release.yml` | Upstream's tag-driven signed release flow (untouched by the fork). |
+| `.github/workflows/ci.yml` | Staged CI: fast lint+pytest on every push/PR/tag; emulator E2E on master and tags; test-key prerelease on master; official signed release on `v*` tags — all gated by `needs:`. |
 | `.rumdl.toml` | Markdown lint config for repo-maintained docs (structural rule MD070 only). |
 
 ## The one architectural rule
@@ -163,14 +162,19 @@ Staged jobs, native GitHub gating (`needs:`), no `continue-on-error` ladders,
 no manual `gh api` status posting, no manual run cancellation (a concurrency
 group with `cancel-in-progress` handles supersession):
 
-1. **fast-checks** — every push and PR: rumdl structural Markdown lint +
+1. **fast-checks** — every push, PR, and tag: rumdl structural Markdown lint +
    `pytest tests/python` on CPython 3.11. Target: ~2–3 minutes. This is the
    job that should catch essentially all conversion regressions.
-2. **android-e2e** — master pushes and manual dispatch only, after
+2. **android-e2e** — master pushes, `v*` tags, and manual dispatch, after
    fast-checks: KVM emulator, cached AVD snapshot, slim instrumented tests.
 3. **release** — master only, after android-e2e: builds a test-key-signed
-   release APK and publishes it as a prerelease with tag
+   dev APK and publishes it as a prerelease with tag
    `v<base>-markdown.r<run_number>`.
+4. **signed-release** — `v*` tags only, after android-e2e: decodes the real
+   keystore from secrets, builds the official signed APK, and publishes a
+   GitHub Release for the tag. Because it sits behind the same fast-checks and
+   android-e2e gates, a tagged release can never ship untested. (This replaced
+   the old standalone `release.yml`, which fired on tags with no tests at all.)
 
 Versioning: `app/build.gradle.kts` reads `VERSION_SUFFIX` and
 `VERSION_CODE_OFFSET` from the environment (CI passes the run number).
